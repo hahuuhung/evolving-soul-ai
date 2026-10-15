@@ -56,3 +56,31 @@ $env:EVOLVING_SOUL_DEMO="1"; streamlit run app_ui.py
 **Mô hình đe dọa (giới hạn đã biết)**: ứng dụng chạy cục bộ, không có máy chủ tin cậy, nên mốc 730 ngày được thực thi bằng logic ứng dụng chứ không phải bằng mật mã. Người có cả file két sắt lẫn mật ước gia đình về lý thuyết có thể giải mã offline. Scrypt khiến việc dò mật ước tốn kém.
 
 **Kiểm thử**: `tests/test_crypto.py`, `tests/test_vault.py` — 16 test (passphrase sai, khôi phục từ `.bak`, không có plaintext trên đĩa, bọc khóa di sản, khóa tăng dần).
+
+---
+
+## Giai đoạn 2 — Thuật toán nhận diện Chủ nhân V3
+
+**Vấn đề của V2**: mọi đặc trưng là giá trị băm 4 chữ số → EMA trung bình hai giá trị băm ngẫu nhiên là vô nghĩa; cosine giữa các vector dương luôn cao; tách tên người thân theo từ đơn khiến "Bố", "Mẹ", "Thị", "Văn" cũng được tính là khớp.
+
+**Thiết kế V3** (`features.py`, `scoring.py`, `engine.py`)
+- **Bí mật so khớp chính xác** → HMAC-SHA256: ngày sinh, tên đầy đủ người thân (bỏ dấu + bỏ từ quan hệ ở đầu), OAuth, tiền tố 3 ký tự & cấu trúc lớp ký tự của mật khẩu (`HungAI@1985#Secret` → `ULUSDSUL`), thiết bị.
+- **Đặc trưng hành vi liên tục** ∈ [0,1]: độ dài từ, độ dài câu, mật độ dấu câu, độ dài & độ đa dạng mật khẩu → EMA $S_t = 0.85·S_{t-1} + 0.15·X_t$ chỉ áp lên các chiều này.
+- Vector vẫn **14 chiều / 5 trụ cột** đúng CLAUDE.md §4.
+- **Cổng cứng**: phải khớp ngày sinh hoặc ≥ 50% người thân.
+- Tiến hóa còn ghi nhớ thiết bị mới (≤5), thói quen mật khẩu mới (≤5), người thân mới (≤30), 60 từ khóa dùng nhiều nhất (thay cho cắt `set` ngẫu nhiên).
+- **Phiên Chủ nhân** do engine giữ (hết hạn sau 15 phút), không còn là cờ do bên gọi truyền vào.
+- Sai 5 lần liên tiếp → khóa tạm (cả xác minh lẫn mở két).
+
+**Hiệu chỉnh** (`tools/calibrate_weights.py`, `tests/synthetic.py`): 300 Chủ nhân giả lập × (3 phiên Chủ nhân già đi, 3 người lạ, 2 người nhà biết ngày sinh + tên người thân + dùng chung máy). Chọn trọng số trên tập train, đo trên tập test độc lập:
+
+| Trọng số | OAuth 0.15 · Gia đình 0.25 · Văn phong 0.35 · Mật khẩu 0.20 · Thiết bị 0.05 |
+|---|---|
+| Ngưỡng | **0.62** (V2: 0.72 trên thang cosine — thang điểm V3 khác nên hiệu chỉnh lại) |
+| FRR | ≈ 4.7% |
+| FAR người lạ | 0% |
+| FAR người nhà | ≈ 3.8% |
+
+Người nhà là đối thủ mạnh nhất; vì vậy ở V3 xác minh hành vi là **lớp thứ hai sau passphrase**: không mở được két thì không có gì để xác minh. Không nên đặt `EVOLVING_SOUL_PASSPHRASE` trên máy dùng chung.
+
+**Kiểm thử**: `tests/test_features.py` (12, gồm test hiệu chỉnh FAR/FRR với seed riêng), `tests/test_engine_owner.py` (9). Tổng 37 test V3.

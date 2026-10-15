@@ -9,18 +9,22 @@ import os
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 
+AUTHOR_ATTRIBUTION = "Tác giả sáng lập: HÀ HỮU HƯNG (1985) — KỸ SƯ AI THẾ HỆ 8X"
+
 ENV_DEMO = "EVOLVING_SOUL_DEMO"
 ENV_PASSPHRASE = "EVOLVING_SOUL_PASSPHRASE"
 ENV_VAULT_DIR = "EVOLVING_SOUL_VAULT_DIR"
 ENV_MODEL_DIR = "EVOLVING_SOUL_MODEL_DIR"
 
-# Trọng số 5 trụ cột khi tính Điểm Tin Cậy (Trust Score); trụ cột vắng mặt được loại và chuẩn hóa lại
+# Trọng số 5 trụ cột khi tính Điểm Tin Cậy (Trust Score); trụ cột vắng mặt được loại và chuẩn hóa lại.
+# Hiệu chỉnh bằng tests/synthetic.py (300 Chủ nhân x 8 phiên, tập kiểm tra độc lập):
+#   ngưỡng 0.62 -> FRR ≈ 4.7%, FAR người lạ = 0%, FAR người nhà (biết ngày sinh + tên người thân, chung máy) ≈ 3.8%.
 DEFAULT_PILLAR_WEIGHTS = {
-    "oauth": 0.10,
-    "family": 0.30,
-    "style": 0.25,
-    "password": 0.25,
-    "device": 0.10,
+    "oauth": 0.15,
+    "family": 0.25,
+    "style": 0.35,
+    "password": 0.20,
+    "device": 0.05,
 }
 
 
@@ -33,7 +37,8 @@ class Settings:
 
     # Tiến hóa thời gian: S_t = (1 - alpha) * S_{t-1} + alpha * X_t
     alpha: float = 0.15
-    owner_threshold: float = 0.72
+    # V2 dùng 0.72 trên thang cosine; V3 chấm theo trụ cột nên ngưỡng hiệu chỉnh lại là 0.62
+    owner_threshold: float = 0.62
     pillar_weights: dict = field(default_factory=lambda: dict(DEFAULT_PILLAR_WEIGHTS))
 
     # Dead Man's Switch

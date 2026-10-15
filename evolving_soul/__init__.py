@@ -6,7 +6,8 @@ Bản quyền: Giấy phép Mã nguồn Mở bắt buộc ghi nhận nguồn g�
 
 from __future__ import annotations
 
-from evolving_soul.config import Settings
+from evolving_soul.config import AUTHOR_ATTRIBUTION, Settings
+from evolving_soul.engine import EvolvingSoulEngine
 from evolving_soul.errors import (
     EvolvingSoulError,
     LockedOutError,
@@ -18,10 +19,10 @@ from evolving_soul.errors import (
 )
 
 __version__ = "3.0.0"
-AUTHOR_ATTRIBUTION = "Tác giả sáng lập: HÀ HỮU HƯNG (1985) — KỸ SƯ AI THẾ HỆ 8X"
 
 __all__ = [
     "AUTHOR_ATTRIBUTION",
+    "EvolvingSoulEngine",
     "EvolvingSoulError",
     "LockedOutError",
     "OwnerNotVerifiedError",
