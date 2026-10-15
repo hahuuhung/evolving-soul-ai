@@ -27,3 +27,4 @@ Thumbs.db
 .ruff_cache/
 .pytest_plan_tmp_*/
 graphify-out/
+.test-tmp-v3/
