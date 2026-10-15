@@ -1,0 +1,25 @@
+name: Bug report
+description: Report a reproducible non-security defect
+body:
+  - type: markdown
+    attributes:
+      value: Do not include personal memory, credentials, shares, or private capsules. Report security issues privately.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Synthetic reproduction
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+

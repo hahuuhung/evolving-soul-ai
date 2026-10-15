@@ -1,0 +1,16 @@
+name: Feature request
+description: Propose a scoped protocol or SDK improvement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem and user outcome
+    validations:
+      required: true
+  - type: textarea
+    id: trust
+    attributes:
+      label: Trust-boundary or privacy impact
+    validations:
+      required: true
+

@@ -1,0 +1,37 @@
+services:
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:v0.11.2
+    ports: ["3000:8080"]
+    volumes: ["open-webui:/app/backend/data"]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+
+  sidecar-demo:
+    build: .
+    entrypoint: ["python", "-m", "evolving_soul.demo", "sidecar"]
+    ports: ["8765:8765"]
+    profiles: ["demo"]
+
+  coordinator-demo:
+    build: .
+    entrypoint: ["python", "-m", "evolving_soul.demo", "coordinator"]
+    ports: ["8770:8770"]
+    profiles: ["demo"]
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: soul
+      POSTGRES_USER: soul
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets: [postgres_password]
+    volumes: ["postgres:/var/lib/postgresql/data"]
+    profiles: ["production-example"]
+
+secrets:
+  postgres_password:
+    file: ./secrets/postgres_password.txt
+
+volumes:
+  open-webui:
+  postgres:
+
