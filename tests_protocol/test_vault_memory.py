@@ -49,4 +49,3 @@ def test_sqlite_does_not_contain_plaintext(tmp_path: Path):
     vault = SoulVault.create(tmp_path / "vault", key_store=MemoryKeyStore())
     vault.propose_memory("unique plaintext canary", provenance=Provenance(source="test"))
     assert b"unique plaintext canary" not in (tmp_path / "vault" / "objects.sqlite3").read_bytes()
-

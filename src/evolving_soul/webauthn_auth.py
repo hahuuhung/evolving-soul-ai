@@ -24,9 +24,7 @@ class WebAuthnManager:
         try:
             import webauthn
         except ImportError as exc:
-            raise SoulError(
-                "Passkey support requires evolving-soul-ai[server]"
-            ) from exc
+            raise SoulError("Passkey support requires evolving-soul-ai[server]") from exc
         return webauthn
 
     def _save_challenge(self, purpose: str, challenge: bytes) -> str:
@@ -130,7 +128,8 @@ class WebAuthnManager:
             (
                 (opaque_id, item)
                 for opaque_id, item in self.store.iter_objects("passkey")
-                if not item["revoked"] and secrets.compare_digest(item["credential_id"], supplied_id)
+                if not item["revoked"]
+                and secrets.compare_digest(item["credential_id"], supplied_id)
             ),
             None,
         )
@@ -165,4 +164,3 @@ class WebAuthnManager:
             raise AuthenticationRequired("Cannot revoke the final owner passkey")
         target[1]["revoked"] = True
         self.store.put(target[0], "passkey", target[1])
-

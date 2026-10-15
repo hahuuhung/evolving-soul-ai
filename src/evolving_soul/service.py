@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import secrets
 import hashlib
 import hmac
+import secrets
 from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -140,7 +140,8 @@ def create_app(
         try:
             plugin_auth(authorization, x_open_webui_user_id, "context:read")
             records = vault.search_context(
-                str(body.get("query", "")), token_budget=min(int(body.get("token_budget", 1024)), 4096)
+                str(body.get("query", "")),
+                token_budget=min(int(body.get("token_budget", 1024)), 4096),
             )
             return {
                 "context": [

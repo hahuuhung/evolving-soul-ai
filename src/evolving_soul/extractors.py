@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 import urllib.request
+from urllib.parse import urlparse
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -41,7 +42,8 @@ class OpenAICompatibleLocalExtractor:
     """Opt-in adapter for a user-selected local OpenAI-compatible endpoint."""
 
     def __init__(self, base_url: str, model: str, timeout: float = 15.0) -> None:
-        if not base_url.startswith(("http://127.0.0.1", "http://localhost")):
+        parsed = urlparse(base_url)
+        if parsed.scheme != "http" or parsed.hostname not in {"127.0.0.1", "localhost", "::1"}:
             raise ValueError("The default adapter accepts local endpoints only")
         self.url = base_url.rstrip("/") + "/v1/chat/completions"
         self.model = model
@@ -61,11 +63,10 @@ class OpenAICompatibleLocalExtractor:
                 "temperature": 0,
             }
         ).encode()
-        request = urllib.request.Request(
+        request = urllib.request.Request(  # noqa: S310 - URL host validated in __init__
             self.url, data=body, headers={"Content-Type": "application/json"}, method="POST"
         )
         with urllib.request.urlopen(request, timeout=self.timeout) as response:  # noqa: S310
             payload = json.load(response)
         values = json.loads(payload["choices"][0]["message"]["content"])
         return [ExtractedMemory(content=str(item)[:1_000]) for item in values if str(item).strip()]
-

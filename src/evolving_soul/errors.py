@@ -20,9 +20,7 @@ class CapsuleIntegrityError(SoulError):
 class UnsupportedLegacyFormat(SoulError):
     """V2 data was detected but is intentionally not opened by V3."""
 
-    documentation_url = (
-        "https://github.com/evolving-soul-ai/evolving-soul-ai/releases/tag/v2.0.0"
-    )
+    documentation_url = "https://github.com/evolving-soul-ai/evolving-soul-ai/releases/tag/v2.0.0"
 
     def __init__(self) -> None:
         super().__init__(
@@ -37,4 +35,3 @@ class ProposalStateError(SoulError):
 
 class SuccessionError(SoulError):
     """A succession policy or claim is invalid."""
-

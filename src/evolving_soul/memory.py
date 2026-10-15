@@ -5,9 +5,9 @@ from __future__ import annotations
 import math
 import re
 import secrets
+from collections.abc import Iterable
 from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
-from typing import Iterable
 
 from .errors import ProposalStateError
 from .storage import EncryptedStore
@@ -38,9 +38,7 @@ class MemoryRepository:
     def __init__(self, store: EncryptedStore) -> None:
         self.store = store
 
-    def propose(
-        self, content: str, compartment_id: str, provenance: Provenance
-    ) -> MemoryProposal:
+    def propose(self, content: str, compartment_id: str, provenance: Provenance) -> MemoryProposal:
         content = content.strip()
         if not content:
             raise ValueError("A memory proposal cannot be empty")
@@ -124,7 +122,9 @@ def search_bm25(
             frequency = document.count(term)
             if not frequency:
                 continue
-            inverse = math.log(1 + (len(documents) - frequencies[term] + 0.5) / (frequencies[term] + 0.5))
+            inverse = math.log(
+                1 + (len(documents) - frequencies[term] + 0.5) / (frequencies[term] + 0.5)
+            )
             denominator = frequency + 1.2 * (0.25 + 0.75 * len(document) / max(average_length, 1))
             score += inverse * frequency * 2.2 / denominator
         if score:

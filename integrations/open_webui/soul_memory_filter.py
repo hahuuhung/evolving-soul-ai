@@ -52,7 +52,11 @@ class Filter:
         user_id = self._user_id(__user__)
         token = getattr((__user__ or {}).get("valves"), "pairing_token", "")
         query = next(
-            (str(item.get("content", "")) for item in reversed(messages) if item.get("role") == "user"),
+            (
+                str(item.get("content", ""))
+                for item in reversed(messages)
+                if item.get("role") == "user"
+            ),
             "",
         )
         if not token or not user_id or not query:
@@ -130,4 +134,3 @@ class Filter:
                 "Memory proposal was not saved because the local sidecar is unavailable.",
             )
         return body
-

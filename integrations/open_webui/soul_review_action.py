@@ -20,9 +20,7 @@ class Action:
         timeout_seconds: float = 2.0
 
     class UserValves(BaseModel):
-        pairing_token: str = Field(
-            default="", json_schema_extra={"input": {"type": "password"}}
-        )
+        pairing_token: str = Field(default="", json_schema_extra={"input": {"type": "password"}})
 
     def __init__(self) -> None:
         self.valves = self.Valves()

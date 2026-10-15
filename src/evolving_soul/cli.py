@@ -46,7 +46,11 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "capsule" and args.capsule_command == "verify":
         header = SoulCapsule.verify(args.source)
-        print(json.dumps({"valid": True, "capsule_id": header.capsule_id, "format": header.format_version}))
+        print(
+            json.dumps(
+                {"valid": True, "capsule_id": header.capsule_id, "format": header.format_version}
+            )
+        )
         return 0
     vault = SoulVault.open(vault_path)
     if args.command == "capsule" and args.capsule_command == "export":

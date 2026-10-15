@@ -30,7 +30,7 @@ class PolicyRuntime:
     released_at: datetime | None = None
 
     @classmethod
-    def create(cls, policy: SuccessionPolicy, coordinator_now: datetime) -> "PolicyRuntime":
+    def create(cls, policy: SuccessionPolicy, coordinator_now: datetime) -> PolicyRuntime:
         if len(set(policy.guardian_credential_ids)) != 3:
             raise SuccessionError("A policy requires three distinct guardian credentials")
         if not policy.compartment_ids:
@@ -90,9 +90,7 @@ def create_release_shares(release_key: bytes | None = None) -> tuple[bytes, Rele
     try:
         from shamir_mnemonic import generate_mnemonics
     except ImportError as exc:
-        raise SuccessionError(
-            "SLIP-39 support requires evolving-soul-ai[coordinator]"
-        ) from exc
+        raise SuccessionError("SLIP-39 support requires evolving-soul-ai[coordinator]") from exc
     release_key = release_key or secrets.token_bytes(32)
     groups = generate_mnemonics(
         group_threshold=2,
@@ -101,7 +99,9 @@ def create_release_shares(release_key: bytes | None = None) -> tuple[bytes, Rele
         passphrase=b"",
         iteration_exponent=1,
     )
-    return release_key, ReleaseShares(guardian_mnemonics=groups[0], coordinator_mnemonic=groups[1][0])
+    return release_key, ReleaseShares(
+        guardian_mnemonics=groups[0], coordinator_mnemonic=groups[1][0]
+    )
 
 
 def utc_now() -> datetime:

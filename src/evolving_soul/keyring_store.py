@@ -60,4 +60,3 @@ class MemoryKeyStore:
 
     def delete(self, capsule_id: str) -> None:
         self.values.pop(capsule_id, None)
-

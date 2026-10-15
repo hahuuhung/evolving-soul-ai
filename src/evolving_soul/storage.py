@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 from .crypto import canonical_json, decrypt, derive_key, encrypt
 from .errors import CapsuleIntegrityError
@@ -18,7 +19,8 @@ class EncryptedStore:
         self._key = derive_key(root_key, b"soul-vault/sqlite-objects/v1")
         self._connection = sqlite3.connect(path)
         self._connection.execute(
-            "CREATE TABLE IF NOT EXISTS objects (opaque_id BLOB PRIMARY KEY, ciphertext BLOB NOT NULL)"
+            "CREATE TABLE IF NOT EXISTS objects "
+            "(opaque_id BLOB PRIMARY KEY, ciphertext BLOB NOT NULL)"
         )
         self._connection.commit()
 
@@ -27,9 +29,7 @@ class EncryptedStore:
 
     def put(self, opaque_id: bytes, kind: str, value: dict[str, Any]) -> None:
         aad = b"soul-object:" + opaque_id
-        nonce, ciphertext = encrypt(
-            self._key, canonical_json({"kind": kind, "value": value}), aad
-        )
+        nonce, ciphertext = encrypt(self._key, canonical_json({"kind": kind, "value": value}), aad)
         with self._connection:
             self._connection.execute(
                 "INSERT OR REPLACE INTO objects(opaque_id, ciphertext) VALUES (?, ?)",
@@ -55,4 +55,3 @@ class EncryptedStore:
                 raise CapsuleIntegrityError("Local encrypted object failed authentication") from exc
             if kind is None or envelope["kind"] == kind:
                 yield opaque_id, envelope["value"]
-

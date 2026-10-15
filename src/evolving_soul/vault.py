@@ -66,7 +66,7 @@ class SoulVault:
         return str(self.metadata["capsule_id"])
 
     @classmethod
-    def create(cls, path: str | Path, *, key_store: KeyStore | None = None) -> "SoulVault":
+    def create(cls, path: str | Path, *, key_store: KeyStore | None = None) -> SoulVault:
         path = Path(path)
         path.mkdir(parents=True, exist_ok=True)
         state_path = path / STATE_FILE
@@ -102,7 +102,7 @@ class SoulVault:
         return vault
 
     @classmethod
-    def open(cls, path: str | Path, *, key_store: KeyStore | None = None) -> "SoulVault":
+    def open(cls, path: str | Path, *, key_store: KeyStore | None = None) -> SoulVault:
         path = Path(path)
         try:
             metadata = json.loads((path / STATE_FILE).read_text(encoding="utf-8"))
@@ -165,9 +165,7 @@ class SoulVault:
         owner_asserted: bool = False,
     ) -> MemoryRecord:
         require_step_up(owner_asserted)
-        return self._require_memory().approve(
-            proposal_id, actor_credential_id, edited_content
-        )
+        return self._require_memory().approve(proposal_id, actor_credential_id, edited_content)
 
     def reject_memory(self, proposal_id: str, *, owner_asserted: bool = False) -> None:
         require_step_up(owner_asserted)

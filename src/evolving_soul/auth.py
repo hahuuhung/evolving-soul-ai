@@ -92,4 +92,3 @@ class PairingTokenManager:
 def require_step_up(owner_asserted: bool) -> None:
     if not owner_asserted:
         raise AuthenticationRequired("A fresh passkey assertion is required")
-

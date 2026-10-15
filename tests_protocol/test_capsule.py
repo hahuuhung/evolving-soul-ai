@@ -69,4 +69,3 @@ def test_legacy_marker_returns_typed_error(tmp_path):
     path.write_text(json.dumps({"owner_profile": {}}))
     with pytest.raises(UnsupportedLegacyFormat):
         SoulCapsule.verify(path)
-

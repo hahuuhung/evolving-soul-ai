@@ -77,8 +77,10 @@ src = ["src", "tests_protocol", "integrations"]
 select = ["E", "F", "W", "I", "B", "UP", "S"]
 ignore = ["S101"]
 
+[tool.ruff.lint.per-file-ignores]
+"tests_protocol/**" = ["S106"]
+
 [tool.mypy]
 python_version = "3.11"
 strict = true
 packages = ["evolving_soul"]
-

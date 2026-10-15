@@ -110,7 +110,9 @@ class PostgresCoordinatorRepository:
             runtime.policy_hash,
             runtime.last_heartbeat,
             runtime.state.value,
-            json.dumps({key: value.isoformat() for key, value in runtime.guardian_assertions.items()}),
+            json.dumps(
+                {key: value.isoformat() for key, value in runtime.guardian_assertions.items()}
+            ),
             runtime.released_at,
             record.notification_ciphertext,
             record.coordinator_share_ciphertext,
@@ -133,7 +135,9 @@ class PostgresCoordinatorRepository:
             policy_hash=row[4],
             last_heartbeat=row[5],
             state=SuccessionState(row[6]),
-            guardian_assertions={key: datetime.fromisoformat(value) for key, value in assertions.items()},
+            guardian_assertions={
+                key: datetime.fromisoformat(value) for key, value in assertions.items()
+            },
             released_at=row[8],
         )
         return CoordinatorRecord(
@@ -157,9 +161,7 @@ class PyWebAuthnAssertionVerifier:
         self.rp_id = rp_id
         self.origin = origin
 
-    def verify(
-        self, credential: dict[str, Any], response: dict[str, Any], challenge: bytes
-    ) -> int:
+    def verify(self, credential: dict[str, Any], response: dict[str, Any], challenge: bytes) -> int:
         try:
             from webauthn import verify_authentication_response
         except ImportError as exc:
@@ -318,12 +320,13 @@ class CoordinatorService:
             "state": record.runtime.state.value,
             "policy_hash": record.runtime.policy_hash,
         }
-        return {"payload": payload, "signature": b64(self.receipt_key.sign(canonical_json(payload)))}
+        return {
+            "payload": payload,
+            "signature": b64(self.receipt_key.sign(canonical_json(payload))),
+        }
 
 
-def create_coordinator_app(
-    service: CoordinatorService, *, provisioning_token: str
-) -> Any:
+def create_coordinator_app(service: CoordinatorService, *, provisioning_token: str) -> Any:
     try:
         from fastapi import FastAPI, Header, HTTPException
     except ImportError as exc:
@@ -331,8 +334,10 @@ def create_coordinator_app(
     app = FastAPI(title="Evolving Soul Coordinator", version="3.0.0a1")
 
     def authorize(value: str | None) -> None:
-        if not value or not value.startswith("Bearer ") or not hmac.compare_digest(
-            value[7:], provisioning_token
+        if (
+            not value
+            or not value.startswith("Bearer ")
+            or not hmac.compare_digest(value[7:], provisioning_token)
         ):
             raise HTTPException(401, "Invalid provisioning credential")
 
@@ -382,6 +387,15 @@ def create_coordinator_app(
 
     @app.post("/v1/release")
     def release(body: dict[str, Any]):
+        guardian_id = body["guardian_id"]
+        # Never return a coordinator share to a caller that did not just prove
+        # control of one of the policy's guardian passkeys.
+        service.assert_actor(
+            capsule_id=body["capsule_id"],
+            actor=guardian_id,
+            challenge_id=body["challenge_id"],
+            response=body["assertion"],
+        )
         return service.release(body["capsule_id"])
 
     return app
@@ -411,3 +425,7 @@ def main(argv: list[str] | None = None) -> int:
 
     uvicorn.run(app, host=args.host, port=args.port)
     return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

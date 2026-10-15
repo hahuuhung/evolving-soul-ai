@@ -8,10 +8,11 @@ import os
 import tempfile
 import uuid
 import zipfile
+from collections.abc import Iterable
 from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
-from typing import Any, Iterable
+from typing import Any
 
 from cryptography.exceptions import InvalidSignature, InvalidTag
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -208,7 +209,11 @@ class SoulCapsule:
                 prefix = source.read_bytes()[:4096].lower()
             except OSError as exc:
                 raise CapsuleIntegrityError("Capsule cannot be read") from exc
-            if b"owner_profile" in prefix or b"evolvingownerai_v2" in prefix or source.suffix == ".enc":
+            if (
+                b"owner_profile" in prefix
+                or b"evolvingownerai_v2" in prefix
+                or source.suffix == ".enc"
+            ):
                 raise UnsupportedLegacyFormat()
             raise CapsuleIntegrityError("Not a valid Soul Capsule archive")
         try:
@@ -282,6 +287,8 @@ class SoulCapsule:
         except CapsuleIntegrityError:
             raise
         except (InvalidTag, KeyError, ValueError, TypeError, json.JSONDecodeError) as exc:
-            raise CapsuleIntegrityError("Capsule authentication or schema validation failed") from exc
+            raise CapsuleIntegrityError(
+                "Capsule authentication or schema validation failed"
+            ) from exc
         except (OSError, zipfile.BadZipFile, RuntimeError) as exc:
             raise CapsuleIntegrityError("Capsule archive is invalid") from exc

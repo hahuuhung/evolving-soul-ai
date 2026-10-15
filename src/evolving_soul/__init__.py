@@ -40,4 +40,3 @@ __all__ = [
 
 __version__ = "3.0.0a1"
 CAPSULE_FORMAT_VERSION = "1.0"
-
