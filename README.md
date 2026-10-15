@@ -1,24 +1,164 @@
-# 🛡️ Evolving Soul AI — Hệ Thống AI Nhỏ Gọn Ghi Nhớ & Nhận Diện Chủ Nhân Phi Sinh Trắc Học & Thừa Kế Di Sản Số
+# 🛡️ Evolving Soul AI — AI Ghi Nhớ Chủ Nhân & Thừa Kế Di Sản Số
 
-[![License: Attribution Required](https://img.shields.io/badge/License-MIT%20(Attribution%20Required)-blue.svg)](#-giấy-phép--bản-quyền-tác-giả)
-[![Python 3.9+](https://img.shields.io/badge/Python-3.9%2B-green.svg)](https://www.python.org/)
-[![UI: Streamlit White Theme](https://img.shields.io/badge/UI-Streamlit%20White%20Theme-FF4B4B.svg)](https://streamlit.io/)
-[![Author: HA HUU HUNG (1985)](https://img.shields.io/badge/Tác%20giả-HÀ%20HỮU%20HƯNG%20(1985)-orange.svg)](#-giấy-phép--bản-quyền-tác-giả)
-[![E2E Tests: Passing](https://img.shields.io/badge/E2E%20Tests-6%2F6%20Passed-brightgreen.svg)](#-kiểm-thử-đầu-cuối-e2e-testing)
+<p align="center">
+  <b>Language / Ngôn ngữ:</b>
+  <a href="#-english"><b>English</b></a> |
+  <a href="#-tiếng-việt"><b>Tiếng Việt</b></a>
+</p>
 
-> **"Khuôn mặt có thể già đi, vân tay có thể mòn, thiết bị có thể thay đổi — nhưng 'Linh hồn số' và sự gắn kết giữa Chủ nhân với AI sẽ cùng nhau tiến hóa theo thời gian."**
+<p align="center">
+  <a href="#-license--attribution"><img src="https://img.shields.io/badge/License-MIT%20(Attribution%20Required)-blue.svg" alt="License"></a>
+  <img src="https://img.shields.io/badge/Python-3.9%2B-green.svg" alt="Python Version">
+  <img src="https://img.shields.io/badge/UI-Streamlit%20White%20Theme-FF4B4B.svg" alt="Streamlit UI">
+  <a href="https://github.com/hahuuhung/evolving-soul-ai/actions"><img src="https://img.shields.io/badge/CI%2FCD-Passing-brightgreen.svg" alt="CI Status"></a>
+  <a href="#-end-to-end-e2e-testing"><img src="https://img.shields.io/badge/E2E%20Tests-6%2F6%20Passed-brightgreen.svg" alt="E2E Tests"></a>
+  <a href="#-license--attribution"><img src="https://img.shields.io/badge/Author-HÀ%20HỮU%20HƯNG%20(1985)-orange.svg" alt="Author"></a>
+</p>
 
 ---
 
-## 🌟 Giới Thiệu Dự Án
+<a name="-english"></a>
+# 🇬🇧 English
 
-**Evolving Soul AI** là một dự án mã nguồn mở tiên phong xây dựng mô hình AI siêu nhẹ chạy trực tiếp trên CPU, làm nhiệm vụ cốt lõi: **Nhận diện và ghi nhớ chính xác chủ nhân của mình** thông qua dữ liệu đặc trưng tổng thể được mã hóa một chiều (Zero-Knowledge) theo dòng thời gian.
+## 🛡️ Evolving Soul AI — Lightweight Non-Biometric Owner Recognition & Digital Legacy Succession
+
+> **"Faces may age, fingerprints may fade, devices may change — but the 'Digital Soul' and the bond between Owner and AI co-evolve over time."**
+
+**Evolving Soul AI** is a lightweight, privacy-first open-source AI architecture designed to run directly on standard CPUs without GPU requirements. Its core mission is to **reliably recognize, remember, and adapt to its true owner** through a multi-layered, zero-knowledge feature vector that evolves continually over decades.
+
+The architecture eliminates reliance on daily physical biometrics (such as retina scans, face cams, or fingerprint readers) during normal operations to prevent biometric harvesting and deepfake spoofing. Furthermore, it incorporates an automated **2-Year Dead Man's Switch (730-day Inactivity Protocol)** with a conditional biometric fallback to securely transfer digital intellectual property, source code, and online assets to designated heirs.
+
+---
+
+### 🏗️ Workflow Architecture
+
+```mermaid
+flowchart TD
+    subgraph S1["1. Multi-Layer Zero-Knowledge Feature Extraction"]
+        A1["OAuth Trust Layer<br>(Google / Apple / Facebook SSO)"] --> V["14-Dimensional Feature Vector"]
+        A2["Personal Lore & Family Graph<br>(One-Way SHA-256 Hashes)"] --> V
+        A3["Personality & Stylometry<br>(Language Style & Overlap)"] --> V
+        A4["Keystroke & Password Dynamics<br>(Pattern, Length, Ratios)"] --> V
+        A5["Device & Context Footprint<br>(Hardware UUID & OS Architecture)"] --> V
+    end
+
+    subgraph S2["2. Symmetric Vault Storage"]
+        V --> ENC["Fernet Symmetric Encryption + SHA-256 Key"]
+        ENC --> VAULT[("Encrypted Vault<br>vault/owner_soul_v2.enc")]
+    end
+
+    subgraph S3["3. Verification & Continual Co-Evolution"]
+        LOGIN["User Verification Session"] --> CALC["Trust Score Computation<br>55% Vector + 30% Family + 15% Stylometry"]
+        CALC --> CHECK{"Trust Score >= 72%?"}
+        CHECK -- Verified Owner --> EMA["Update EMA: S_t = 0.85*S_{t-1} + 0.15*X_t<br>Evolve to Generation #N+1"]
+        EMA --> UPDATE_PING["Update last_owner_ping = time.time()"]
+        UPDATE_PING --> VAULT
+        CHECK -- Imposter --> BLOCK["🚨 Reject Access & Sound Security Alert"]
+    end
+
+    subgraph S4["4. 2-Year Dead Man's Switch (Digital Legacy Succession)"]
+        NOW["Real-time Clock"] -.-> INACT{"Owner Inactive >= 730 Days?"}
+        INACT -- No (< 2 Years) --> COMPANION["Family Companion Mode<br>Root Digital Assets Stay Locked"]
+        INACT -- Yes (>= 2 Years) --> BIO_TRIGGER["Activate Emergency Biometric Layer<br>(Delayed Biometric Fallback)"]
+        BIO_TRIGGER --> KIN_TEST{"Dual Heir Authentication:<br>Kin Knowledge >= 70% AND<br>Biometric Match >= 75%?"}
+        KIN_TEST -- Verified --> UNLOCK["🎉 Grant Copyright Succession Certificate<br>& Release Online Assets"]
+        KIN_TEST -- Failed --> DENY["Deny Succession Request"]
+    end
+```
+
+---
+
+### 🧬 The 5 Pillars of the 14-Dimensional Vector
+
+1. **OAuth SSO Identity Trust (4 dims):** Cryptographic hashes of linked Google, Apple, and Facebook IDs combined with coverage ratios.
+2. **Personal Lore & Family Graph (2 dims):** Normalized birthdate and tokenized unordered family members graph.
+3. **Core Personality Traits (1 dim):** Longitudinal psychological trait footprint.
+4. **Keystroke & Password Pattern (4 dims):** Structural habits (casing, numeric ratios, special symbols, length) — **without saving plain passwords**.
+5. **Hardware & Environment Footprint (3 dims):** Device MAC hardware nodes and operating system profile.
+
+#### 📈 Mathematical Formulation (Exponential Moving Average Continual Learning):
+$$S_t = (1 - \alpha) \cdot S_{t-1} + \alpha \cdot X_t$$
+*(With $\alpha = 0.15$, the model preserves 85% of core baseline identity while seamlessly absorbing 15% natural life changes per verified login).*
+
+---
+
+### 💻 Modern White Theme UI (Streamlit)
+
+Designed with a clean, professional **White Theme** layout (`#FFFFFF` cards, `#F8FAFC` background, `#E2E8F0` borders, `#2563EB` tech blue, `#059669` trust green, and `#D97706` amber accents):
+
+* **Tab 1 — Onboarding (Training):** Initialize the seed profile (`Gen #1`) and encrypt data into the local vault.
+* **Tab 2 — Verification (Co-Evolution):** Real-time polar Radar Chart comparison against dynamic aging and habits.
+* **Tab 3 — Digital Soul Passport (Data Vault):** Issue verifiable `Public Soul ID (SOUL-XXXX)` & societal responsibility pledge.
+* **Tab 4 — Digital Legacy (2-Year Dead Man's Switch):** Heir registration, inactivity countdown, and camera-based emergency biometric scanner.
+
+---
+
+### 🚀 Quickstart & Installation
+
+#### 1. Prerequisites
+* Python 3.9+ (Windows, Linux, macOS).
+* Standard CPU (no GPU needed).
+
+#### 2. Install dependencies
+```bash
+pip install -r requirements.txt
+```
+
+#### 3. Run the Application
+```bash
+streamlit run app_ui.py
+```
+Access the web dashboard in your browser at `http://localhost:8501`.
+
+---
+
+### 🧪 End-to-End (E2E) Testing
+
+Run the automated test suite covering all 6 security and lifecycle scenarios:
+```bash
+pytest test_e2e_suite.py -v
+```
+
+1. `test_step1_owner_onboarding_and_encryption`: Seed profile creation, 14-dim vector integrity, disk zero-knowledge check.
+2. `test_step2_owner_aging_and_continual_evolution`: 5-year habit drift simulation and automated evolution to `Gen #2`.
+3. `test_step3_imposter_attack_blocked`: Complete rejection of imposters without polluting owner state.
+4. `test_step4_setup_digital_legacy_with_biometrics`: 730-day inactivity threshold lock and 64-dim heir biometric extraction.
+5. `test_step5_kin_access_before_2_years_locked`: Assets stay strictly locked during owner active cycle (< 730 days).
+6. `test_step6_kin_biometric_unlock_after_2_years`: Full succession grant after 730+ days via biometric verification.
+
+---
+
+### 📜 License & Attribution
+
+Distributed under the **MIT License with Mandatory Author Attribution**.
+
+Any reproduction, derivative work, or commercial integration **MUST PROMINENTLY DISPLAY THE ORIGINAL AUTHOR CREDIT**:
+
+> * **Original Author:** **HÀ HỮU HƯNG (1985) — 8X GENERATION AI ENGINEER**
+> * **Core Architecture:** Lightweight Non-Biometric Evolving Owner Recognition & 2-Year Digital Legacy Succession (Evolving Soul AI).
+
+---
+
+<br>
+<hr>
+<br>
+
+<a name="-tiếng-việt"></a>
+# 🇻🇳 Tiếng Việt
+
+## 🛡️ Evolving Soul AI — Hệ Thống AI Nhỏ Gọn Ghi Nhớ & Nhận Diện Chủ Nhân Phi Sinh Trắc Học & Thừa Kế Di Sản Số
+
+> **"Khuôn mặt có thể già đi, vân tay có thể mòn, thiết bị có thể thay đổi — nhưng 'Linh hồn số' và sự gắn kết giữa Chủ nhân với AI sẽ cùng nhau tiến hóa theo thời gian."**
+
+**Evolving Soul AI** là một dự án mã nguồn mở tiên phong xây dựng mô hình AI siêu nhẹ chạy trực tiếp trên CPU thông thường (không cần GPU), làm nhiệm vụ cốt lõi: **Nhận diện và ghi nhớ chính xác chủ nhân của mình** thông qua dữ liệu đặc trưng tổng thể được mã hóa một chiều (Zero-Knowledge) theo dòng thời gian.
 
 Hệ thống loại bỏ hoàn toàn sự lệ thuộc vào sinh trắc học tĩnh hàng ngày (như camera quét mắt, khuôn mặt hay vân tay) nhằm chống nguy cơ rò rỉ sinh trắc học và Deepfake, đồng thời tích hợp **Giao thức Công tắc Di sản Tự động (Dead Man's Switch 730 ngày / 2 năm)** để bảo vệ bản quyền sáng tạo và chuyển giao an toàn cho thế hệ sau.
 
 ---
 
-## 🏗️ Kiến Trúc Hệ Thống (Workflow Architecture)
+### 🏗️ Kiến Trúc Hệ Thống (Workflow Architecture)
+
+Hệ thống kết hợp 4 lớp bảo mật và cơ chế thích nghi liên tục **Exponential Moving Average (EMA)**:
 
 ```mermaid
 flowchart TD
@@ -56,7 +196,7 @@ flowchart TD
 
 ---
 
-## 🧬 5 Trụ Cột Của Vector Đặc Trưng 14 Chiều
+### 🧬 5 Trụ Cột Của Vector Đặc Trưng 14 Chiều
 
 1. **OAuth Identity Trust (4 chiều):** Băm định danh Google, Apple, Facebook và tỷ lệ liên kết tài khoản chính chủ.
 2. **Ký ức Gia đình & Ngày sinh (2 chiều):** Chuẩn hóa ngày sinh và tập hợp từ khóa quan hệ họ hàng (bố mẹ, vợ/chồng, con cái).
@@ -64,13 +204,13 @@ flowchart TD
 4. **Hành vi Mật khẩu & Ngữ nghĩa (4 chiều):** Tỷ lệ ký tự hoa/số/ký tự đặc biệt, tiền tố và văn phong câu trả lời mở.
 5. **Dấu vân tay Thiết bị (3 chiều):** Định danh phần cứng MAC UUID và phiên bản hệ điều hành.
 
-**Công thức Tiến hóa Liên tục (Continual Learning):**
+#### 📈 Công thức Tiến hóa Liên tục (Continual Learning):
 $$S_t = (1 - \alpha) \cdot S_{t-1} + \alpha \cdot X_t$$
-*(Hệ thống giữ lại 85% bản sắc cốt lõi ($\alpha=0.15$) và hấp thụ 15% sự thay đổi tự nhiên qua các thế hệ `Gen #N`).*
+*(Hệ thống giữ lại 85% bản sắc cốt lõi với $\alpha=0.15$ và hấp thụ 15% sự thay đổi tự nhiên qua các thế hệ `Gen #N`).*
 
 ---
 
-## 💻 Thiết Kế Giao Diện Trực Quan (Streamlit White Theme)
+### 💻 Thiết Kế Giao Diện Trực Quan (Streamlit White Theme)
 
 Ứng dụng được thiết kế theo phong cách **White Theme** hiện đại, sang trọng, thanh lịch:
 * **Background:** Nền trắng sáng tinh tế (`#FFFFFF`, `#F8FAFC`).
@@ -78,7 +218,7 @@ $$S_t = (1 - \alpha) \cdot S_{t-1} + \alpha \cdot X_t$$
 * **Palette Màu Sắc:** Xanh công nghệ (`#2563EB`), Xanh ngọc bích tin cậy (`#059669`), Hổ phách di sản (`#D97706`).
 * **Radar Chart (Plotly):** Trực quan hóa 5 góc nhìn nhận diện theo thời gian thực trên nền polar trắng.
 
-### 4 Màn Hình Chức Năng:
+#### 4 Màn Hình Chức Năng:
 1. **Tab 1 — Khởi Tạo Hồ Sơ (Training):** Đăng ký thông tin ban đầu, sinh ra Hạt giống số Gen #1.
 2. **Tab 2 — Xác Minh & Tự Tiến Hóa (Verification):** Đối chiếu chữ ký số, tự học và cập nhật thế hệ mới.
 3. **Tab 3 — Hộ Chiếu Danh Tính Số (Data Vault):** Cấp phát `Public Soul ID (SOUL-XXXX)` & Cam kết trách nhiệm xã hội số.
@@ -86,18 +226,18 @@ $$S_t = (1 - \alpha) \cdot S_{t-1} + \alpha \cdot X_t$$
 
 ---
 
-## 🚀 Hướng Dẫn Cài Đặt & Khởi Chạy
+### 🚀 Hướng Dẫn Cài Đặt & Khởi Chạy
 
-### 1. Yêu cầu hệ thống
+#### 1. Yêu cầu hệ thống
 * Python 3.9 trở lên (Windows / macOS / Linux).
 * Không cần GPU, chạy mượt mà ngay trên CPU máy tính cá nhân hoặc thiết bị nhúng.
 
-### 2. Cài đặt thư viện
+#### 2. Cài đặt thư viện
 ```bash
 pip install -r requirements.txt
 ```
 
-### 3. Khởi chạy Ứng dụng Giao diện (Streamlit White Theme)
+#### 3. Khởi chạy Ứng dụng Giao diện (Streamlit White Theme)
 ```bash
 streamlit run app_ui.py
 ```
@@ -105,9 +245,13 @@ Trình duyệt sẽ tự động mở giao diện tại: `http://localhost:8501`
 
 ---
 
-## 🧪 Kiểm Thử Đầu-Cuối (E2E Testing)
+### 🧪 Kiểm Thử Đầu-Cuối (E2E Testing)
 
 Dự án đi kèm bộ test E2E toàn diện bao gồm 6 kịch bản thực tế khắt khe:
+```bash
+pytest test_e2e_suite.py -v
+```
+
 1. `test_step1_owner_onboarding_and_encryption`: Khởi tạo hồ sơ, sinh vector 14 chiều và kiểm tra bảo mật Zero-Knowledge trên đĩa.
 2. `test_step2_owner_aging_and_continual_evolution`: Giả lập chủ nhân già đi, đổi mật khẩu và tiến hóa lên Gen #2.
 3. `test_step3_imposter_attack_blocked`: Chặn đứng kẻ mạo danh và bảo vệ thế hệ tiến hóa.
@@ -115,14 +259,9 @@ Dự án đi kèm bộ test E2E toàn diện bao gồm 6 kịch bản thực t�
 5. `test_step5_kin_access_before_2_years_locked`: Khóa toàn bộ tài sản khi chủ nhân mới offline < 2 năm (< 730 ngày).
 6. `test_step6_kin_biometric_unlock_after_2_years`: Mở khóa bàn giao toàn bộ bản quyền và tài sản sau 2 năm (730 ngày) offline khi quét sinh trắc học thành công.
 
-Chạy kiểm thử bằng lệnh:
-```bash
-pytest test_e2e_suite.py -v
-```
-
 ---
 
-## 📜 Giấy Phép & Bản Quyền Tác Giả
+### 📜 Giấy Phép & Bản Quyền Tác Giả
 
 Dự án được phát hành dưới giấy phép **MIT License with Mandatory Author Attribution**.
 
