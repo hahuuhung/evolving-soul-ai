@@ -17,7 +17,9 @@ import logging
 import time
 from typing import Callable
 
-from evolving_soul import scoring
+from evolving_soul import legacy, scoring
+from evolving_soul.audit import AuditLog
+from evolving_soul.biometrics import BiometricError, FaceBiometrics
 from evolving_soul.config import AUTHOR_ATTRIBUTION, Settings
 from evolving_soul.errors import OwnerNotVerifiedError, ProfileExistsError, VaultLockedError
 from evolving_soul.features import observe, probe_device
@@ -39,9 +41,12 @@ class EvolvingSoulEngine:
         settings: Settings | None = None,
         clock: Callable[[], float] = time.time,
         device_probe: Callable[[], tuple[str, str]] = probe_device,
+        biometrics: FaceBiometrics | None = None,
     ):
         self.settings = settings or Settings.from_env()
         self.vault = Vault(self.settings.vault_dir, kdf_n=self.settings.kdf_n)
+        self.audit = AuditLog(self.settings.vault_dir, clock=clock)
+        self.biometrics = biometrics or FaceBiometrics(self.settings.model_dir)
         self.guard = AttemptGuard(
             self.settings.vault_dir,
             max_failures=self.settings.max_failed_attempts,
@@ -97,6 +102,7 @@ class EvolvingSoulEngine:
         self._session = self.vault.initialize(passphrase)
         self._profile = None
         self._owner_verified_at = None
+        self.audit.append("vault_created", "ok")
 
     def unlock(self, passphrase: str) -> None:
         self.guard.check("unlock")
@@ -104,8 +110,10 @@ class EvolvingSoulEngine:
             session = self.vault.unlock(passphrase)
         except VaultLockedError:
             self.guard.record_failure("unlock")
+            self.audit.append("vault_unlock", "denied")
             raise
         self.guard.record_success("unlock")
+        self.audit.append("vault_unlock", "ok")
         self._session = session
         self._profile = self.vault.load_profile(session)
         self._owner_verified_at = None
@@ -121,8 +129,15 @@ class EvolvingSoulEngine:
             raise VaultLockedError("Két sắt đang khóa — cần passphrase của Chủ nhân.")
         return self._session
 
-    def _save(self) -> None:
-        self.vault.save_profile(self._require_unlocked(), self._profile)
+    def _refresh(self) -> None:
+        """Đọc lại hồ sơ từ đĩa (tránh ghi đè thay đổi do phiên khác, ví dụ người thừa kế vừa tiếp quản)."""
+        if self.is_unlocked:
+            self._profile = self.vault.load_profile(self._session)
+
+    def _save(self, session: VaultSession | None = None) -> None:
+        """Ghi hồ sơ, kèm neo nhật ký kiểm toán để phát hiện việc viết lại toàn bộ nhật ký."""
+        self._profile["audit_anchor"] = self.audit.last_hash
+        self.vault.save_profile(session or self._require_unlocked(), self._profile)
 
     # =====================================================================
     # PHIÊN CHỦ NHÂN ĐÃ XÁC MINH
@@ -154,6 +169,7 @@ class EvolvingSoulEngine:
                 raise ProfileExistsError("Hồ sơ Chủ nhân đã tồn tại.")
             self.require_owner_verified()
             self.vault.clear_legacy_secret(session)
+            self.audit.append("owner_reinitialized", "ok")
             logger.warning("owner_reinitialized")
 
         obs = observe(data, session.cipher, self._device_probe())
@@ -168,6 +184,7 @@ class EvolvingSoulEngine:
             "trust_history": [],
             "author_attribution": AUTHOR_ATTRIBUTION,
         }
+        self.audit.append("owner_registered", "ok", generation=1)
         self._save()
         self._owner_verified_at = None
         logger.info("owner_registered %s", kv(generation=1, family_members=len(model["family"])))
@@ -183,6 +200,7 @@ class EvolvingSoulEngine:
         Sai liên tiếp `max_failed_attempts` lần -> LockedOutError.
         """
         session = self._require_unlocked()
+        self._refresh()
         if self._profile is None:
             raise ProfileExistsError("Chưa có hồ sơ Chủ nhân để xác minh.")
         self.guard.check("owner")
@@ -208,6 +226,8 @@ class EvolvingSoulEngine:
             self._owner_verified_at = self._clock()
         else:
             self.guard.record_failure("owner")
+        self.audit.append("owner_verification", "ok" if is_owner else "denied",
+                          trust=round(result["trust_score"], 3), generation=self._profile["generation"])
         self._save()
 
         logger.info(
@@ -229,4 +249,153 @@ class EvolvingSoulEngine:
         }
 
     def _on_owner_verified(self) -> None:
-        """Điểm mở rộng: Di sản Số cập nhật heartbeat khi Chủ nhân xác minh thành công."""
+        """Heartbeat Di sản Số: Chủ nhân còn hoạt động -> đặt lại đồng hồ 730 ngày, thu hồi nếu đã bị tiếp quản."""
+        config = self._profile.get("legacy")
+        if config and legacy.heartbeat(config, self.now()):
+            self.audit.append("legacy_claim_revoked", "ok")
+            logger.warning("legacy_claim_revoked_owner_returned")
+
+    # =====================================================================
+    # DI SẢN SỐ — PHÍA CHỦ NHÂN
+    # =====================================================================
+
+    def seal_legacy(
+        self,
+        *,
+        heir_name: str,
+        heir_email: str,
+        family_secret: str,
+        assets: list[str],
+        message: str,
+        heir_images: list[bytes] | None = None,
+        inactivity_days: int | None = None,
+    ) -> dict:
+        """Niêm phong Di sản Số (ghi đè lần niêm phong trước). Yêu cầu Chủ nhân đã xác minh trong phiên."""
+        session = self._require_unlocked()
+        self.require_owner_verified()
+        if not heir_name.strip() or not heir_email.strip() or not assets:
+            raise ValueError("Cần đủ họ tên, email người thừa kế và ít nhất một tài sản số.")
+        if len(family_secret.strip()) < legacy.MIN_FAMILY_SECRET_LENGTH:
+            raise ValueError(f"Mật ước gia đình phải dài tối thiểu {legacy.MIN_FAMILY_SECRET_LENGTH} ký tự.")
+        days = int(inactivity_days or self.settings.inactivity_days)
+        if days < 30 and not self.settings.demo_mode:
+            raise ValueError("Ngưỡng vắng mặt tối thiểu 30 ngày.")
+
+        template = self.biometrics.enroll(heir_images) if heir_images else None
+        self._refresh()
+        self._profile["legacy"] = legacy.seal(
+            session.cipher, self.settings,
+            heir_name=heir_name, heir_email=heir_email, family_secret=family_secret,
+            assets=assets, message=message, biometric=template, inactivity_days=days, now=self.now(),
+        )
+        self.vault.set_legacy_secret(session, family_secret)
+        self.audit.append("legacy_sealed", "ok", threshold_days=days, biometric=template["method"] if template else "none",
+                          assets=len(assets))
+        self._save()
+        return self.legacy_status()
+
+    def legacy_status(self) -> dict | None:
+        """Trạng thái Dead Man's Switch cho Chủ nhân (két sắt đang mở khóa)."""
+        self._require_unlocked()
+        self._refresh()
+        config = (self._profile or {}).get("legacy")
+        return legacy.status(config, self.now(), self.settings) if config else None
+
+    def revoke_legacy(self) -> None:
+        session = self._require_unlocked()
+        self.require_owner_verified()
+        self._refresh()
+        self._profile.pop("legacy", None)
+        self.vault.clear_legacy_secret(session)
+        self.audit.append("legacy_revoked", "ok")
+        self._save()
+
+    # =====================================================================
+    # DI SẢN SỐ — CỔNG TIẾP QUẢN CỦA NGƯỜI THỪA KẾ
+    # =====================================================================
+
+    def claim_legacy(
+        self,
+        *,
+        kin_name: str,
+        kin_email: str,
+        owner_dob: str,
+        family_members: str,
+        family_secret: str,
+        live_image: bytes | None = None,
+    ) -> dict:
+        """
+        Xác thực kép người thừa kế (không cần passphrase của Chủ nhân).
+        Chỉ bàn giao tài sản khi: xác thực đạt VÀ Chủ nhân vắng mặt ≥ ngưỡng (mặc định 730 ngày).
+        """
+        self.guard.check("kin")
+        result = {
+            "is_verified": False, "is_unlockable": False, "is_unlocked": False,
+            "knowledge_score": 0.0, "knowledge_parts": {}, "bio": None,
+            "assets": [], "message": "", "owner_name": None, "reason": "",
+            "elapsed_days": None, "threshold_days": None,
+        }
+        try:
+            session = self.vault.unlock_with_legacy_secret(family_secret)
+        except VaultLockedError as exc:
+            self.guard.record_failure("kin")
+            self.audit.append("legacy_claim", "denied", reason="secret")
+            result["reason"] = str(exc)
+            return result
+
+        profile = self.vault.load_profile(session)
+        config = (profile or {}).get("legacy")
+        if not config:
+            result["reason"] = "Chủ nhân chưa niêm phong Di sản Số."
+            return result
+
+        state = legacy.status(config, self.now(), self.settings)
+        knowledge, parts = legacy.knowledge_score(
+            config, profile["model"], session.cipher,
+            kin_name=kin_name, kin_email=kin_email, owner_dob=owner_dob, family_members=family_members,
+        )
+        bio = None
+        if config.get("biometric") and live_image:
+            try:
+                bio = self.biometrics.match(config["biometric"], live_image)
+            except BiometricError as exc:
+                result["reason"] = str(exc)
+        verified, reason = legacy.decide(knowledge, bio, config.get("biometric") is not None, self.settings)
+        unlocked = verified and state["is_unlockable"]
+
+        result.update({
+            "is_verified": verified, "is_unlockable": state["is_unlockable"], "is_unlocked": unlocked,
+            "knowledge_score": knowledge, "knowledge_parts": parts, "bio": bio,
+            "owner_name": profile["owner_name"], "reason": result["reason"] or reason,
+            "elapsed_days": state["elapsed_days"], "threshold_days": state["threshold_days"],
+        })
+        if not verified:
+            self.guard.record_failure("kin")
+        else:
+            self.guard.record_success("kin")
+        if unlocked:
+            payload = legacy.open_payload(config, family_secret)
+            result["assets"], result["message"] = payload["assets"], payload["message"]
+            config.update({"claimed": True, "custodian_display": kin_name, "claimed_at": self.now()})
+            self.audit.append("legacy_claim", "unlocked", knowledge=round(knowledge, 3),
+                              bio=round(bio["cosine"], 3) if bio else None)
+            profile["audit_anchor"] = self.audit.last_hash
+            self.vault.save_profile(session, profile)
+            self._refresh()
+            logger.warning("legacy_transferred %s", kv(elapsed_days=state["elapsed_days"]))
+        else:
+            outcome = "verified_locked" if verified else "denied"
+            self.audit.append("legacy_claim", outcome, knowledge=round(knowledge, 3),
+                              bio=round(bio["cosine"], 3) if bio else None)
+        return result
+
+    # =====================================================================
+    # NHẬT KÝ KIỂM TOÁN
+    # =====================================================================
+
+    def audit_events(self, n: int = 20) -> list[dict]:
+        return self.audit.tail(n)
+
+    def audit_integrity(self) -> dict:
+        anchor = (self._profile or {}).get("audit_anchor")
+        return self.audit.verify(anchor)

@@ -101,3 +101,33 @@ Người nhà là đối thủ mạnh nhất; vì vậy ở V3 xác minh hành v
 **Ghi chú ghim checksum**: SHA-256 được lấy từ bản tải opencv_zoo ngày 2026-10-15 (trust-on-first-use). Nếu opencv_zoo cập nhật file, cần cập nhật hằng số `DETECTOR` / `RECOGNIZER`.
 
 **Kiểm thử**: `tests/test_biometrics.py` — 4 test luôn chạy (checksum, fallback, ảnh hỏng, mẫu SFace khi thiếu model) + 3 test `@pytest.mark.models` dùng ảnh mẫu `lena.jpg` / `messi5.jpg` của OpenCV (tải về cache, ghim SHA-256, tự bỏ qua khi offline).
+
+---
+
+## Giai đoạn 4 — Dead Man's Switch & nhật ký kiểm toán
+
+**Niêm phong (Chủ nhân, `engine.seal_legacy`)** — yêu cầu Chủ nhân đã xác minh trong 15 phút gần nhất.
+- Mật ước gia đình tối thiểu 10 ký tự; khóa chủ của két được bọc thêm bằng khóa Scrypt suy từ mật ước → người thừa kế mở két **không cần** passphrase của Chủ nhân.
+- Tên / email người thừa kế lưu dạng HMAC; danh mục tài sản + lời nhắn được mã hóa thêm một lớp bằng khóa suy từ mật ước, nên người chỉ có passphrase của Chủ nhân cũng không đọc được.
+- Sinh trắc: 1–3 ảnh người thừa kế → mẫu SFace (hoặc histogram nếu không có model).
+- Khởi tạo lại hồ sơ Chủ nhân sẽ hủy lớp bọc mật ước (di sản cũ không còn mở được).
+
+**Đồng hồ 730 ngày (`legacy.status`)**
+- Mốc tính từ lần cuối Chủ nhân **xác minh hành vi thành công** (heartbeat).
+- ≥ 90% ngưỡng (≈ 657 ngày): trạng thái `warning` để nhắc Chủ nhân.
+- Chủ nhân quay lại và xác minh thành công → đặt lại đồng hồ, **thu hồi** di sản nếu đã bị tiếp quản.
+- *Khác với kế hoạch*: mở két bằng passphrase **không** được tính là heartbeat — nếu passphrase đặt trong biến môi trường, mỗi lần khởi động ứng dụng sẽ tự đặt lại đồng hồ và Dead Man's Switch không bao giờ kích hoạt.
+
+**Cổng tiếp quản (`engine.claim_legacy`)** — quy tắc xác thực kép:
+
+| Lớp sinh trắc đã niêm phong | Điều kiện |
+|---|---|
+| SFace (bảo đảm cao) | tri thức ≥ 70% **và** cosine ≥ 0.363 |
+| Histogram (bảo đảm thấp) | tri thức ≥ 85% **và** histogram khớp |
+| Không có | tri thức ≥ 85% |
+
+Điểm tri thức = 0.20 tên + 0.20 email + 0.15 ngày sinh Chủ nhân + 0.20 người thân + 0.25 mật ước. Chỉ bàn giao tài sản khi xác thực đạt **và** đã qua ngưỡng vắng mặt. Sai 5 lần → khóa tạm kênh `kin`.
+
+**Nhật ký kiểm toán (`audit.py`)** — `vault/audit.jsonl`, mỗi dòng chứa hash của dòng trước (chuỗi băm). Hồ sơ đã mã hóa lưu "neo" là hash mới nhất, nên sửa một dòng hay xóa cả file đều bị phát hiện (`engine.audit_integrity()`). Nhật ký không chứa tên, email, ngày sinh hay mật ước.
+
+**Kiểm thử**: `tests/test_legacy.py` — 22 test (niêm phong, trước/sau 730 ngày, thu hồi khi Chủ nhân quay lại, cảnh báo 90%, khóa tạm, bảng quy tắc xác thực kép, SFace người thật vs người khác, sửa/xóa nhật ký). Tổng 66 test V3.
