@@ -4,6 +4,8 @@ Tác giả sáng lập: HÀ HỮU HƯNG (1985) — KỸ SƯ AI THẾ HỆ 8X
 Bản quyền: Giấy phép Mã nguồn Mở bắt buộc ghi nhận nguồn gốc (Attribution Required)
 """
 
+from __future__ import annotations
+
 import os
 import json
 import time
@@ -31,8 +33,17 @@ class EvolvingOwnerAI_V2:
     Tích hợp bảo mật đa tầng, đồ thị gia đình, mã hóa thời gian và cơ chế thừa kế di sản số 2 năm.
     """
 
-    def __init__(self, secret_key_phrase: str = "chu_nhan_bi_mat_v2_2026", vault_dir: str = "vault"):
+    def __init__(
+        self,
+        secret_key_phrase: str = "chu_nhan_bi_mat_v2_2026",
+        vault_dir: str = "vault",
+        demo_mode: bool | None = None
+    ):
         self.vault_dir = vault_dir
+        # Chế độ demo: chỉ khi bật mới cho phép mô phỏng số ngày offline (tránh vượt mốc 730 ngày)
+        if demo_mode is None:
+            demo_mode = os.environ.get("EVOLVING_SOUL_DEMO", "") == "1"
+        self.demo_mode = bool(demo_mode)
         self.vault_path = os.path.join(self.vault_dir, "owner_soul_v2.enc")
 
         if not os.path.exists(self.vault_dir):
@@ -187,10 +198,15 @@ class EvolvingOwnerAI_V2:
     # ĐĂNG KÝ HỒ SƠ CHỦ NHÂN GỐC (ONBOARDING)
     # =========================================================================
 
-    def register_owner(self, data_dict: dict) -> dict:
+    def register_owner(self, data_dict: dict, force: bool = False, owner_verified: bool = False) -> dict:
         """
         Khởi tạo 'Hạt giống Số' (Generation #1) của Chủ nhân.
+        Nếu két sắt đã có hồ sơ, chỉ cho phép ghi đè khi force=True VÀ chủ nhân đã xác minh trong phiên.
         """
+        if os.path.exists(self.vault_path) and not (force and owner_verified):
+            logger.warning("Từ chối ghi đè hồ sơ Chủ nhân: chưa xác minh chủ nhân (force=%s, owner_verified=%s)", force, owner_verified)
+            raise PermissionError("Hồ sơ Chủ nhân đã tồn tại. Cần xác minh Chủ nhân trước khi khởi tạo lại.")
+
         vec, family_set, word_set, radar = self.build_soul_package(data_dict)
 
         profile = {
@@ -318,11 +334,17 @@ class EvolvingOwnerAI_V2:
         assets_list: list[str],
         message_to_kin: str,
         heir_bio_bytes: bytes | None = None,
-        inactivity_days: int = 730
+        inactivity_days: int = 730,
+        owner_session_verified: bool = False
     ) -> dict:
         """
         Thiết lập giao thức Di sản Số với ngưỡng mặc định 2 năm (730 ngày) và khóa Sinh trắc học.
+        Chỉ Chủ nhân đã xác minh trong phiên hiện tại mới được niêm phong / thay đổi người thừa kế.
         """
+        if not owner_session_verified:
+            logger.warning("Từ chối niêm phong Di sản Số: Chủ nhân chưa xác minh trong phiên.")
+            raise PermissionError("Cần xác minh Chủ nhân trước khi niêm phong Di sản Số!")
+
         profile = self.load_profile()
         if not profile:
             raise ValueError("Cần khởi tạo hồ sơ Chủ nhân trước khi lập Di sản Số!")
@@ -347,10 +369,19 @@ class EvolvingOwnerAI_V2:
         logger.info("Đã niêm phong Di sản Số cho người thừa kế '%s' (Ngưỡng: %d ngày)", heir_name, inactivity_days)
         return profile["legacy_config"]
 
+    def _effective_simulated_days(self, simulated_days_offline: float) -> float:
+        """Chỉ chấp nhận số ngày mô phỏng khi đang ở chế độ demo."""
+        if simulated_days_offline and not self.demo_mode:
+            logger.warning("Bỏ qua simulated_days_offline=%.1f vì không ở chế độ demo (EVOLVING_SOUL_DEMO!=1)", simulated_days_offline)
+            return 0.0
+        return float(simulated_days_offline or 0.0)
+
     def check_inactivity_status(self, simulated_days_offline: float = 0.0) -> dict | None:
         """
         Kiểm tra trạng thái hoạt động của Chủ nhân đối chiếu với ngưỡng 2 năm (730 ngày).
+        simulated_days_offline chỉ có hiệu lực ở chế độ demo.
         """
+        simulated_days_offline = self._effective_simulated_days(simulated_days_offline)
         profile = self.load_profile()
         if not profile or "legacy_config" not in profile:
             return None

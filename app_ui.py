@@ -4,7 +4,9 @@ Tác giả sáng lập: HÀ HỮU HƯNG (1985) — KỸ SƯ AI THẾ HỆ 8X
 Bản quyền: Giấy phép Mã nguồn Mở bắt buộc ghi nhận nguồn gốc (Attribution Required)
 """
 
-import os
+from __future__ import annotations
+
+import html
 import json
 import hashlib
 import streamlit as st
@@ -114,6 +116,27 @@ st.markdown("""
 ai = EvolvingOwnerAI_V2()
 profile = ai.load_profile()
 
+# Trạng thái phiên: Chủ nhân đã xác minh thành công trong phiên hiện tại hay chưa
+if "owner_verified" not in st.session_state:
+    st.session_state["owner_verified"] = False
+
+
+def esc(value) -> str:
+    """Escape dữ liệu người dùng trước khi chèn vào HTML (chống chèn mã)."""
+    return html.escape(str(value if value is not None else ""))
+
+
+def mask_profile(data):
+    """Bản xem đã che của hồ sơ: chỉ lộ cấu trúc, độ dài và vài ký tự đầu của digest."""
+    if isinstance(data, dict):
+        return {k: mask_profile(v) for k, v in data.items()}
+    if isinstance(data, list):
+        return f"<list: {len(data)} phần tử>"
+    if isinstance(data, (int, float, bool)) or data is None:
+        return data
+    digest = hashlib.sha256(str(data).encode("utf-8")).hexdigest()[:8]
+    return f"<str: {len(str(data))} ký tự, sha256 {digest}…>"
+
 ALL_TRAITS = [
     "Hướng nội", "Hướng ngoại", "Logic & Lý trí", "Giàu cảm xúc",
     "Thích công nghệ", "Yêu nghệ thuật", "Cầu toàn", "Phóng khoáng",
@@ -128,8 +151,13 @@ with st.sidebar:
     st.caption("Mô hình AI Nhỏ Gọn Nhận Diện Chủ Nhân Phi Sinh Trắc Học & Thừa Kế Di Sản Số")
     st.divider()
 
+    if ai.demo_mode:
+        st.warning("🧪 **CHẾ ĐỘ DEMO** — cho phép mô phỏng số ngày offline.")
+
     if profile:
         st.success(f"🟢 **Chủ nhân**: {profile.get('owner_name', 'Chủ Nhân')}")
+        if st.session_state["owner_verified"]:
+            st.caption("🔓 Chủ nhân đã xác minh trong phiên này.")
         st.metric(label="Thế hệ Tiến hóa (Generation)", value=f"Gen #{profile.get('generation', 1)}")
         st.caption(f"🕒 Cập nhật: `{profile.get('last_updated', 'N/A')}`")
     else:
@@ -254,7 +282,16 @@ with tab1:
             key="t1_ans"
         )
 
-    if st.button("🚀 Mã hóa & Lưu Hồ Sơ Chủ Nhân Gốc", type="primary", use_container_width=True):
+    reinit_confirm = False
+    if profile:
+        if st.session_state["owner_verified"]:
+            st.warning("⚠️ Két sắt đã có hồ sơ Chủ nhân. Khởi tạo lại sẽ xóa toàn bộ lịch sử tiến hóa và Di sản Số.")
+            reinit_confirm = st.checkbox("Tôi là Chủ nhân và xác nhận muốn khởi tạo lại hồ sơ", key="t1_reinit")
+        else:
+            st.error("🔒 Két sắt đã có hồ sơ Chủ nhân. Chỉ Chủ nhân đã xác minh ở Tab 2 mới được khởi tạo lại.")
+
+    if st.button("🚀 Mã hóa & Lưu Hồ Sơ Chủ Nhân Gốc", type="primary", use_container_width=True,
+                 disabled=bool(profile) and not reinit_confirm):
         if not dob or not family_str or not pw_sample or not sec_answer:
             st.error("⚠️ Vui lòng điền đầy đủ Ngày sinh, Thông tin gia đình, Mật khẩu mẫu và Câu trả lời!")
         else:
@@ -269,9 +306,14 @@ with tab1:
                 "password": pw_sample,
                 "answer": sec_answer
             }
-            new_prof = ai.register_owner(data_pkg)
-            st.success("✅ Đã tạo và mã hóa thành công 'Hạt giống Số' của Chủ nhân! Chuyển sang Tab 2 để trải nghiệm.")
-            st.rerun()
+            try:
+                ai.register_owner(data_pkg, force=reinit_confirm, owner_verified=st.session_state["owner_verified"])
+            except PermissionError as e:
+                st.error(f"🔒 {e}")
+            else:
+                st.session_state["owner_verified"] = False
+                st.success("✅ Đã tạo và mã hóa thành công 'Hạt giống Số' của Chủ nhân! Chuyển sang Tab 2 để trải nghiệm.")
+                st.rerun()
 
 # =========================================================================
 # TAB 2: XÁC MINH CHỦ NHÂN & TIẾN HÓA TRƯỢT THỜI GIAN
@@ -308,7 +350,7 @@ with tab2:
                     "google": oauth_google,
                     "apple": oauth_apple,
                     "facebook": oauth_fb,
-                    "dob": str(v_dob),
+                    "dob": str(v_dob) if v_dob else "",
                     "family": v_family,
                     "traits": v_traits,
                     "password": v_pw,
@@ -317,6 +359,7 @@ with tab2:
                 res = ai.verify_and_evolve(v_pkg)
 
                 if res:
+                    st.session_state["owner_verified"] = bool(res["is_owner"])
                     st.plotly_chart(plot_soul_radar(res["saved_radar"], res["curr_radar"]), use_container_width=True)
                     score_pct = res["trust_score"] * 100
 
@@ -342,7 +385,8 @@ with tab3:
         st.info("Chưa có dữ liệu Chủ nhân.")
     else:
         soul_hash = hashlib.sha256(json.dumps(profile["evolving_vector"]).encode()).hexdigest()[:16].upper()
-        traits_display = ", ".join(profile.get("traits_saved", ["Chưa cập nhật"]))
+        traits_display = esc(", ".join(profile.get("traits_saved", ["Chưa cập nhật"])))
+        owner_display = esc(profile.get("owner_name"))
 
         st.markdown(f"""
         <div class="passport-box">
@@ -356,13 +400,13 @@ with tab3:
                 </div>
             </div>
             <div style="font-size: 15px; line-height: 1.8; color: #1E293B;">
-                <p><b>Chủ nhân hợp pháp:</b> <span style="color: #0F172A; font-weight: 700;">{profile.get('owner_name')}</span></p>
+                <p><b>Chủ nhân hợp pháp:</b> <span style="color: #0F172A; font-weight: 700;">{owner_display}</span></p>
                 <p><b>Mã định danh Linh hồn Số (Public Soul ID):</b> <code style="font-size: 15px; color: #059669; background: #FFFFFF; padding: 2px 8px; border: 1px solid #A7F3D0; border-radius: 4px;">SOUL-{soul_hash}</code></p>
                 <p><b>Bản sắc & Cá tính cốt lõi:</b> <i>{traits_display}</i></p>
-                <p><b>Thời gian tạo lập:</b> {profile.get('created_at', '2026-10-15')}</p>
+                <p><b>Thời gian tạo lập:</b> {esc(profile.get('created_at', 'N/A'))}</p>
                 <hr style="border: 0; border-top: 1px dashed #CBD5E1; margin: 15px 0;">
                 <div style="font-size: 13px; color: #475569; background: #FFFFFF; padding: 12px; border-radius: 8px; border: 1px solid #E2E8F0;">
-                    <b>Tuyên ngôn Trách nhiệm Xã hội Số:</b> Bản sao AI mang mã định danh <code>SOUL-{soul_hash}</code> này đại diện cho ý chí, danh dự và đạo đức của chủ nhân <b>{profile.get('owner_name')}</b> trên không gian mạng, cam kết hoạt động vì cộng đồng và thượng tôn pháp luật.<br>
+                    <b>Tuyên ngôn Trách nhiệm Xã hội Số:</b> Bản sao AI mang mã định danh <code>SOUL-{soul_hash}</code> này đại diện cho ý chí, danh dự và đạo đức của chủ nhân <b>{owner_display}</b> trên không gian mạng, cam kết hoạt động vì cộng đồng và thượng tôn pháp luật.<br>
                     <span style="color: #2563EB; font-weight: 600; font-size: 12px;">Kiến trúc lõi sáng lập bởi: HÀ HỮU HƯNG (1985) — KỸ SƯ AI THẾ HỆ 8X.</span>
                 </div>
             </div>
@@ -370,8 +414,9 @@ with tab3:
         """, unsafe_allow_html=True)
 
         st.write("")
-        with st.expander("🔐 Xem Cấu Trúc Dữ Liệu Đã Mã Hóa (Zero-Knowledge Disk Inspection)"):
-            st.json(profile)
+        with st.expander("🔐 Xem Cấu Trúc Dữ Liệu Đã Che (Zero-Knowledge Disk Inspection)"):
+            st.caption("Chỉ hiển thị cấu trúc, độ dài và digest rút gọn — không lộ nội dung gốc.")
+            st.json(mask_profile(profile))
 
 # =========================================================================
 # TAB 4: DI SẢN SỐ & THỪA KẾ 2 NĂM (DEAD MAN'S SWITCH)
@@ -409,7 +454,10 @@ with tab4:
                 key="t4_msg"
             )
 
-            if st.button("🔒 Niêm Phong Di Sản Số (Hẹn giờ 2 Năm = 730 Ngày)", type="primary", use_container_width=True):
+            if not st.session_state["owner_verified"]:
+                st.info("🔒 Chỉ Chủ nhân đã xác minh ở Tab 2 trong phiên này mới được niêm phong Di sản Số.")
+            if st.button("🔒 Niêm Phong Di Sản Số (Hẹn giờ 2 Năm = 730 Ngày)", type="primary", use_container_width=True,
+                         disabled=not st.session_state["owner_verified"]):
                 if not heir_name or not heir_email or not family_secret or not assets_input:
                     st.error("⚠️ Vui lòng điền đầy đủ Người kế thừa, Mật ước và Danh mục tài sản!")
                 else:
@@ -422,9 +470,10 @@ with tab4:
                         assets_list=assets_list,
                         message_to_kin=legacy_msg,
                         heir_bio_bytes=bio_bytes,
-                        inactivity_days=730
+                        inactivity_days=730,
+                        owner_session_verified=st.session_state["owner_verified"]
                     )
-                    st.success(f"✅ Đã niêm phong Di sản Số cho **{heir_name}** (Khóa bảo vệ 730 ngày offline)!")
+                    st.success(f"✅ Đã niêm phong Di sản Số cho **{esc(heir_name)}** (Khóa bảo vệ 730 ngày offline)!")
                     st.rerun()
 
         with col_claim:
@@ -432,13 +481,16 @@ with tab4:
             if "legacy_config" not in profile:
                 st.info("Chủ nhân chưa thiết lập Di sản Số.")
             else:
-                sim_days = st.slider("⏳ [Mô phỏng Thử nghiệm] Số ngày Chủ nhân đã không online:", 0, 1000, 0, step=10)
+                sim_days = 0
+                if ai.demo_mode:
+                    sim_days = st.slider("🧪 [DEMO] Số ngày Chủ nhân đã không online:", 0, 1000, 0, step=10)
                 status = ai.check_inactivity_status(sim_days)
+                threshold = status["threshold_days"]
 
                 if status["is_unlockable"]:
-                    st.error(f"🚨 Chủ nhân đã vắng mặt **{status['elapsed_days']} ngày** (Vượt ngưỡng 730 ngày / 2 năm). **LỚP SINH TRẮC HỌC ĐÃ ĐƯỢC MỞ KHÓA!**")
+                    st.error(f"🚨 Chủ nhân đã vắng mặt **{status['elapsed_days']} ngày** (Vượt ngưỡng {threshold} ngày). **LỚP SINH TRẮC HỌC ĐÃ ĐƯỢC MỞ KHÓA!**")
                 else:
-                    remaining = max(0, round(730 - status['elapsed_days'], 1))
+                    remaining = max(0, round(threshold - status['elapsed_days'], 1))
                     st.info(f"🛡️ Chủ nhân vẫn trong chu kỳ hoạt động (Còn **{remaining} ngày** nữa). Chế độ bảo vệ độc quyền đang bật.")
 
                 k_name = st.text_input("Họ tên Người thân xác thực:", key="k_name")
@@ -465,7 +517,7 @@ with tab4:
                     res = ai.verify_kin_with_biometrics(
                         kin_name=k_name,
                         kin_email=k_email,
-                        owner_dob=str(k_dob),
+                        owner_dob=str(k_dob) if k_dob else "",
                         other_family_members=k_fam,
                         family_secret_input=k_secret,
                         live_bio_bytes=live_bio_bytes,
@@ -477,18 +529,18 @@ with tab4:
                     c_k2.metric("Điểm Khớp Sinh trắc học", f"{res['bio_score']*100:.1f}%", "Yêu cầu >= 75%")
 
                     if not res["is_unlockable"]:
-                        st.warning("⏳ Chưa đủ điều kiện 2 năm (730 ngày) Chủ nhân không online. Hãy kéo thanh trượt mô phỏng lên >= 730 ngày để thử nghiệm!")
+                        st.warning(f"⏳ Chưa đủ {threshold} ngày Chủ nhân không online. Cổng tiếp quản vẫn đang khóa.")
                     elif res["is_unlocked"]:
                         st.balloons()
-                        st.success(f"🎉 **XÁC NHẬN NGƯỜI THÂN TIẾP QUẢN HỢP PHÁP: {k_name.upper()}!**")
-                        
-                        assets_html = "".join([f"<li style='margin-bottom: 6px;'><code>{item}</code></li>" for item in res['assets']])
+                        st.success(f"🎉 **XÁC NHẬN NGƯỜI THÂN TIẾP QUẢN HỢP PHÁP: {esc(k_name.upper())}!**")
+
+                        assets_html = "".join([f"<li style='margin-bottom: 6px;'><code>{esc(item)}</code></li>" for item in res['assets']])
                         st.markdown(f"""
                         <div class="legacy-box">
                             <h4 style="color: #92400E; margin-top: 0;">📜 CHỨNG THƯ CHUYỂN GIAO BẢN QUYỀN & DI SẢN SỐ</h4>
-                            <p><b>Chủ nhân sáng lập:</b> {res['owner_name']} <i>(Kiến trúc sư: HÀ HỮU HƯNG 1985 — KỸ SƯ AI THẾ HỆ 8X)</i></p>
-                            <p><b>Người thừa kế hợp pháp:</b> {k_name} ({k_email})</p>
-                            <p><b>Di thư của Chủ nhân:</b> <i>"{res['message']}"</i></p>
+                            <p><b>Chủ nhân sáng lập:</b> {esc(res['owner_name'])} <i>(Kiến trúc sư: HÀ HỮU HƯNG 1985 — KỸ SƯ AI THẾ HỆ 8X)</i></p>
+                            <p><b>Người thừa kế hợp pháp:</b> {esc(k_name)} ({esc(k_email)})</p>
+                            <p><b>Di thư của Chủ nhân:</b> <i>"{esc(res['message'])}"</i></p>
                             <hr style="border: 0; border-top: 1px solid #FDE68A; margin: 15px 0;">
                             <p style="color: #B45309; font-weight: 700;">🔓 Danh mục Bản quyền & Thành quả Sáng tạo Mở Khóa:</p>
                             <ul>{assets_html}</ul>

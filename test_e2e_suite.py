@@ -30,7 +30,7 @@ def generate_synthetic_face_bytes(seed_val: int = 42) -> bytes:
 def ai_e2e():
     """Tạo môi trường két sắt độc lập để kiểm thử, tự dọn dẹp sau khi chạy."""
     test_vault_dir = "vault_e2e_test"
-    ai = EvolvingOwnerAI_V2(secret_key_phrase="e2e_production_test_key_1985", vault_dir=test_vault_dir)
+    ai = EvolvingOwnerAI_V2(secret_key_phrase="e2e_production_test_key_1985", vault_dir=test_vault_dir, demo_mode=True)
 
     if os.path.exists(test_vault_dir):
         shutil.rmtree(test_vault_dir)
@@ -133,7 +133,8 @@ def test_step4_setup_digital_legacy_with_biometrics(ai_e2e):
         assets_list=assets,
         message_to_kin="Con hãy tiếp tục phát triển dự án AI này và giữ vững đạo đức nghề nghiệp.",
         heir_bio_bytes=heir_face_bytes,
-        inactivity_days=730
+        inactivity_days=730,
+        owner_session_verified=True
     )
     assert leg_cfg["inactivity_threshold_days"] == 730
     assert leg_cfg["heir_biometric_vector"] is not None, "Lỗi: Không trích xuất được Vector sinh trắc học người thừa kế!"
