@@ -131,3 +131,20 @@ Người nhà là đối thủ mạnh nhất; vì vậy ở V3 xác minh hành v
 **Nhật ký kiểm toán (`audit.py`)** — `vault/audit.jsonl`, mỗi dòng chứa hash của dòng trước (chuỗi băm). Hồ sơ đã mã hóa lưu "neo" là hash mới nhất, nên sửa một dòng hay xóa cả file đều bị phát hiện (`engine.audit_integrity()`). Nhật ký không chứa tên, email, ngày sinh hay mật ước.
 
 **Kiểm thử**: `tests/test_legacy.py` — 22 test (niêm phong, trước/sau 730 ngày, thu hồi khi Chủ nhân quay lại, cảnh báo 90%, khóa tạm, bảng quy tắc xác thực kép, SFace người thật vs người khác, sửa/xóa nhật ký). Tổng 66 test V3.
+
+---
+
+## Giai đoạn 6 — Migration két sắt V2 → V3
+
+*(Thực hiện trước Giai đoạn 5 vì giao diện mới cần luồng migration.)*
+
+Hash V2 chỉ có 4 chữ số nên không thể chuyển thẳng sang HMAC. Migration gồm 2 bước:
+
+1. **`engine.migrate_from_v2(passphrase_moi, v2_phrase=mặc định)`** — giải mã `vault/owner_soul_v2.enc`, tạo két V3 với passphrase mới, lưu toàn bộ dữ liệu V2 *bên trong* hồ sơ V3 (đã mã hóa) với cờ `migration_pending`, đổi tên file V2 thành `owner_soul_v2.v2.bak`. Sai cụm từ V2 → không tạo két V3 dở dang.
+2. **Lần `verify_owner()` đầu tiên** — chấm điểm bằng **thuật toán V2** (`legacy_v2.py`, đã kiểm chứng cho kết quả trùng khớp tuyệt đối với `core_engine.py` cũ) với ngưỡng 0.72. Đạt → dựng mô hình V3 từ dữ liệu của chính phiên này, giữ số thế hệ (+1), xóa dữ liệu V2 và **xóa file `.v2.bak`**.
+
+*Khác với kế hoạch*: file `.v2.bak` bị **xóa** sau khi hoàn tất thay vì giữ lại, vì nó được mã hóa bằng khóa mặc định công khai trong mã nguồn — giữ lại đồng nghĩa với để dữ liệu dạng gần như rõ trên đĩa.
+
+**Di sản V2**: không mang theo hash 4 chữ số (quá yếu). Danh mục tài sản, lời nhắn, tên người thừa kế được giữ trong `legacy_v2_pending` để giao diện điền sẵn khi Chủ nhân **niêm phong lại**. Cho tới khi niêm phong lại, người thừa kế chưa thể tiếp quản — giao diện sẽ cảnh báo rõ.
+
+**Kiểm thử**: `tests/test_migration.py` — 5 test (cụm từ V2 sai/tùy chỉnh, kẻ lạ không hoàn tất được migration, không đăng ký chen ngang khi đang chờ, không migrate hai lần, không còn plaintext V2 trên đĩa). Tổng 71 test V3.

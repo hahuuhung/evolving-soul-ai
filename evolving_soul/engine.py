@@ -14,10 +14,12 @@ from __future__ import annotations
 
 import copy
 import logging
+import os
 import time
+from pathlib import Path
 from typing import Callable
 
-from evolving_soul import legacy, scoring
+from evolving_soul import legacy, legacy_v2, scoring
 from evolving_soul.audit import AuditLog
 from evolving_soul.biometrics import BiometricError, FaceBiometrics
 from evolving_soul.config import AUTHOR_ATTRIBUTION, Settings
@@ -204,6 +206,8 @@ class EvolvingSoulEngine:
         if self._profile is None:
             raise ProfileExistsError("Chưa có hồ sơ Chủ nhân để xác minh.")
         self.guard.check("owner")
+        if self._profile.get("migration_pending"):
+            return self._complete_migration(data, session)
 
         obs = observe(data, session.cipher, self._device_probe())
         result = scoring.compare(obs, self._profile["model"], self.settings)
@@ -246,6 +250,102 @@ class EvolvingSoulEngine:
             "saved_radar": saved_radar,
             "curr_radar": curr_radar,
             "owner_name": self._profile["owner_name"],
+            "migrated": False,
+        }
+
+    # =====================================================================
+    # MIGRATION V2 -> V3
+    # =====================================================================
+
+    @property
+    def v2_vault_path(self) -> Path:
+        return Path(self.settings.vault_dir) / legacy_v2.V2_FILE
+
+    @property
+    def v2_backup_path(self) -> Path:
+        return Path(self.settings.vault_dir) / "owner_soul_v2.v2.bak"
+
+    @property
+    def needs_migration(self) -> bool:
+        """Có két sắt V2 nhưng chưa có két V3."""
+        return self.v2_vault_path.exists() and not self.is_initialized
+
+    @property
+    def migration_pending(self) -> bool:
+        """Đã chuyển dữ liệu V2 vào két V3, chờ Chủ nhân xác minh lần đầu để dựng mô hình V3."""
+        return bool((self._profile or {}).get("migration_pending"))
+
+    def migrate_from_v2(self, new_passphrase: str, v2_phrase: str = legacy_v2.V2_DEFAULT_PHRASE) -> dict:
+        """
+        Bước 1: giải mã két V2, tạo két V3 với passphrase mới, giữ dữ liệu V2 bên trong (đã mã hóa V3)
+        và đổi tên file V2. Bước 2 diễn ra ở lần verify_owner() đầu tiên.
+        """
+        if self.is_initialized:
+            raise ProfileExistsError("Đã có két sắt V3 — không migrate lại.")
+        v2 = legacy_v2.read_v2_profile(self.v2_vault_path, v2_phrase)
+        self.create_vault(new_passphrase)
+        self._profile = {
+            "owner_name": v2.get("owner_name", "Chủ nhân"),
+            "generation": int(v2.get("generation", 1)),
+            "created_at": v2.get("created_at", time.strftime("%Y-%m-%d %H:%M:%S")),
+            "traits_saved": list(v2.get("traits_saved", [])),
+            "radar_baseline": {label: 1.0 for label in scoring.PILLAR_LABELS.values()},
+            "trust_history": [],
+            "author_attribution": AUTHOR_ATTRIBUTION,
+            "migration_pending": True,
+            "v2_profile": v2,
+        }
+        self.audit.append("migration_started", "ok", generation=self._profile["generation"])
+        self._save()
+        os.replace(self.v2_vault_path, self.v2_backup_path)
+        logger.info("migration_started %s", kv(generation=self._profile["generation"]))
+        return self.profile
+
+    def _complete_migration(self, data: dict, session: VaultSession) -> dict:
+        """Chấm điểm bằng thuật toán V2 trên dữ liệu cũ; nếu đạt thì dựng mô hình V3 từ chính phiên này."""
+        trust = legacy_v2.v2_trust_score(self._profile["v2_profile"], data)
+        is_owner = trust >= legacy_v2.V2_THRESHOLD
+        saved_radar = dict(self._profile["radar_baseline"])
+        history = self._profile.setdefault("trust_history", [])
+        history.append({"ts": round(self.now()), "trust": round(trust, 4), "is_owner": is_owner})
+
+        pillars: dict = {p: None for p in scoring.PILLARS}
+        if is_owner:
+            v2 = self._profile.pop("v2_profile")
+            model = scoring.build_model(observe(data, session.cipher, self._device_probe()))
+            self._profile.update({
+                "model": model,
+                "radar_baseline": scoring.baseline_radar(model),
+                "generation": self._profile["generation"] + 1,
+                "migration_pending": False,
+                "legacy_v2_pending": legacy_v2.pending_legacy_summary(v2),
+            })
+            if data.get("traits"):
+                self._profile["traits_saved"] = list(data["traits"])
+            pillars = {p: (1.0 if s is not None else None) for p, s in scoring.compare(
+                observe(data, session.cipher, self._device_probe()), model, self.settings)["pillars"].items()}
+            self.guard.record_success("owner")
+            self._owner_verified_at = self._clock()
+            self.audit.append("migration_completed", "ok", trust_v2=round(trust, 3), generation=self._profile["generation"])
+        else:
+            self.guard.record_failure("owner")
+            self.audit.append("owner_verification", "denied", trust_v2=round(trust, 3), migration=True)
+        self._save()
+        if is_owner and self.v2_backup_path.exists():
+            self.v2_backup_path.unlink()  # file V2 dùng khóa công khai trong mã nguồn -> xóa sau khi đã dựng xong V3
+        logger.info("migration_verification %s", kv(is_owner=is_owner, trust_v2=f"{trust:.3f}"))
+        return {
+            "is_owner": is_owner,
+            "trust_score": trust,
+            "threshold": legacy_v2.V2_THRESHOLD,
+            "gate_passed": is_owner,
+            "pillars": pillars,
+            "details": {},
+            "generation": self._profile["generation"],
+            "saved_radar": saved_radar,
+            "curr_radar": self._profile["radar_baseline"] if is_owner else {k: 0.0 for k in saved_radar},
+            "owner_name": self._profile["owner_name"],
+            "migrated": is_owner,
         }
 
     def _on_owner_verified(self) -> None:
