@@ -30,7 +30,15 @@ from .errors import SoulError, VaultLockedError
 from .keyring_store import KeyStore, PlatformKeyring
 from .memory import MemoryRepository, search_bm25
 from .storage import EncryptedStore
-from .types import Compartment, MemoryProposal, MemoryRecord, Provenance, SuccessionPolicy
+from .succession import ReleaseShares, create_release_shares
+from .types import (
+    CapsuleHeader,
+    Compartment,
+    MemoryProposal,
+    MemoryRecord,
+    Provenance,
+    SuccessionPolicy,
+)
 
 STATE_FILE = "vault.json"
 DATABASE_FILE = "objects.sqlite3"
@@ -182,9 +190,16 @@ class SoulVault:
         records = self._require_memory().records(compartment_ids)
         return search_bm25(records, query, limit=limit, token_budget=token_budget)
 
-    def export(self, destination: str | Path, *, passphrase: str) -> Path:
+    def export(
+        self,
+        destination: str | Path,
+        *,
+        passphrase: str,
+        recovery_destination: str | Path | None = None,
+    ) -> Path:
         memory = self._require_memory()
-        assert self._root_key is not None and self._signing_key is not None
+        if self._root_key is None or self._signing_key is None:
+            raise VaultLockedError("Vault is locked")
         grouped: dict[str, list[dict[str, Any]]] = {}
         for record in memory.records():
             grouped.setdefault(record.compartment_id, []).append(asdict(record))
@@ -194,6 +209,17 @@ class SoulVault:
         ]
         self.metadata["export_sequence"] = int(self.metadata["export_sequence"]) + 1
         _atomic_json(self.path / STATE_FILE, self.metadata)
+        succession = (
+            next(self._store.iter_objects("succession-secret"), None) if self._store else None
+        )
+        recovery_ids = None
+        recovery_key = None
+        policy_hash = None
+        if succession is not None:
+            _opaque_id, setup = succession
+            recovery_ids = set(setup["compartment_ids"])
+            recovery_key = unb64(setup["release_key"])
+            policy_hash = setup["policy_hash"]
         return SoulCapsule.export(
             destination,
             capsule_id=self.capsule_id,
@@ -202,31 +228,49 @@ class SoulVault:
             compartments=compartments,
             passphrase=passphrase,
             sequence=self.metadata["export_sequence"],
+            recovery_destination=recovery_destination,
+            recovery_compartment_ids=recovery_ids,
+            recovery_key=recovery_key,
+            policy_hash=policy_hash,
         )
 
     @staticmethod
-    def verify(source: str | Path, passphrase: str | None = None):
+    def verify(source: str | Path, passphrase: str | None = None) -> CapsuleHeader:
         return SoulCapsule.verify(source, passphrase)
 
     def configure_succession(
         self, policy: SuccessionPolicy, *, owner_asserted: bool = False
-    ) -> None:
+    ) -> ReleaseShares:
         require_step_up(owner_asserted)
         store = self._store
         if store is None:
             raise VaultLockedError("Vault is locked")
         # Replacing a policy creates a new opaque object and invalidates previous shares.
-        for opaque_id, _ in list(store.iter_objects("succession-policy")):
-            store.delete(opaque_id)
+        for kind in ("succession-policy", "succession-secret"):
+            for opaque_id, _ in list(store.iter_objects(kind)):
+                store.delete(opaque_id)
+        release_key, shares = create_release_shares()
+        policy_hash = __import__("hashlib").sha256(canonical_json(asdict(policy))).hexdigest()
+        store.put(
+            secrets.token_bytes(24),
+            "succession-secret",
+            {
+                "release_key": b64(release_key),
+                "policy_hash": policy_hash,
+                "compartment_ids": policy.compartment_ids,
+            },
+        )
         store.put(secrets.token_bytes(24), "succession-policy", asdict(policy))
+        return shares
 
     def revoke_succession(self, *, owner_asserted: bool = False) -> None:
         require_step_up(owner_asserted)
         store = self._store
         if store is None:
             raise VaultLockedError("Vault is locked")
-        for opaque_id, _ in list(store.iter_objects("succession-policy")):
-            store.delete(opaque_id)
+        for kind in ("succession-policy", "succession-secret"):
+            for opaque_id, _ in list(store.iter_objects(kind)):
+                store.delete(opaque_id)
 
     def check_in(self, *, owner_asserted: bool = False) -> dict[str, str]:
         require_step_up(owner_asserted)

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import secrets
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, cast
 
 from .crypto import b64, unb64
 from .errors import AuthenticationRequired, SoulError
@@ -20,7 +20,7 @@ class WebAuthnManager:
         self._challenges: dict[str, tuple[str, bytes, datetime]] = {}
 
     @staticmethod
-    def _library():
+    def _library() -> Any:
         try:
             import webauthn
         except ImportError as exc:
@@ -148,7 +148,7 @@ class WebAuthnManager:
         item["sign_count"] = verification.new_sign_count
         item["last_used_at"] = datetime.now(UTC).isoformat()
         self.store.put(opaque_id, "passkey", item)
-        return item["credential_id"]
+        return cast(str, item["credential_id"])
 
     def revoke_credential(self, credential_id: str) -> None:
         active = 0

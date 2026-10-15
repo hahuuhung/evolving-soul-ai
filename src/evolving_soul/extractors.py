@@ -5,9 +5,9 @@ from __future__ import annotations
 import json
 import re
 import urllib.request
-from urllib.parse import urlparse
 from dataclasses import dataclass
 from typing import Protocol
+from urllib.parse import urlparse
 
 
 @dataclass(slots=True)
@@ -66,7 +66,9 @@ class OpenAICompatibleLocalExtractor:
         request = urllib.request.Request(  # noqa: S310 - URL host validated in __init__
             self.url, data=body, headers={"Content-Type": "application/json"}, method="POST"
         )
-        with urllib.request.urlopen(request, timeout=self.timeout) as response:  # noqa: S310
+        with urllib.request.urlopen(  # noqa: S310  # nosec B310
+            request, timeout=self.timeout
+        ) as response:
             payload = json.load(response)
         values = json.loads(payload["choices"][0]["message"]["content"])
         return [ExtractedMemory(content=str(item)[:1_000]) for item in values if str(item).strip()]

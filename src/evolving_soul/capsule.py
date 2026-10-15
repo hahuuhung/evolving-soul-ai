@@ -106,6 +106,10 @@ class SoulCapsule:
         compartments: Iterable[Compartment],
         passphrase: str,
         sequence: int = 1,
+        recovery_destination: str | Path | None = None,
+        recovery_compartment_ids: set[str] | None = None,
+        recovery_key: bytes | None = None,
+        policy_hash: str | None = None,
     ) -> Path:
         destination = Path(destination)
         if destination.suffix != ".soul":
@@ -113,6 +117,7 @@ class SoulCapsule:
         capsule_aad = f"{MAGIC}:{capsule_id}:{FORMAT_VERSION}".encode()
         entry_blobs: dict[str, bytes] = {}
         descriptors: list[dict[str, Any]] = []
+        recovery_descriptors: list[dict[str, Any]] = []
         wrap_key = derive_key(root_key, b"soul-capsule/compartment-wrap/v1")
 
         for compartment in compartments:
@@ -137,6 +142,15 @@ class SoulCapsule:
                     "wrapped_cek": b64(wrapped_cek),
                 }
             )
+            if recovery_compartment_ids and cid in recovery_compartment_ids:
+                recovery_descriptors.append(
+                    {
+                        "compartment_id": cid,
+                        "entry": entry,
+                        "sha256": _sha256(blob),
+                        "cek": b64(cek),
+                    }
+                )
 
         created_at = datetime.now(UTC).isoformat()
         manifest = CapsuleManifest(
@@ -167,6 +181,13 @@ class SoulCapsule:
         header_dict = asdict(header)
         header_dict["signature"] = b64(signing_key.sign(_signature_payload(header_dict)))
 
+        if recovery_destination is not None and (
+            not recovery_key or not policy_hash or not recovery_descriptors
+        ):
+            raise ValueError(
+                "Selective recovery requires a key, policy hash, and selected compartment"
+            )
+
         destination.parent.mkdir(parents=True, exist_ok=True)
         handle, temporary_name = tempfile.mkstemp(
             prefix=f".{destination.name}.", suffix=".tmp", dir=destination.parent
@@ -186,6 +207,19 @@ class SoulCapsule:
                 os.unlink(temporary_name)
             except FileNotFoundError:
                 pass
+        if recovery_destination is not None:
+            if recovery_key is None or policy_hash is None:
+                raise ValueError("Recovery configuration became incomplete")
+            from .recovery import write_recovery_bundle
+
+            write_recovery_bundle(
+                recovery_destination,
+                capsule_id=capsule_id,
+                policy_hash=policy_hash,
+                release_key=recovery_key,
+                signing_key=signing_key,
+                selected=recovery_descriptors,
+            )
         return destination
 
     @staticmethod
@@ -195,9 +229,14 @@ class SoulCapsule:
 
     @staticmethod
     def open(
-        source: str | Path, passphrase: str
+        source: str | Path, passphrase: str, *, minimum_sequence: int | None = None
     ) -> tuple[CapsuleHeader, CapsuleManifest, list[Compartment], bytes]:
-        return SoulCapsule._read(source, passphrase, True)
+        header, manifest, compartments, root_key = SoulCapsule._read(source, passphrase, True)
+        if manifest is None or root_key is None:
+            raise CapsuleIntegrityError("Capsule payload was not decrypted")
+        if minimum_sequence is not None and manifest.sequence < minimum_sequence:
+            raise CapsuleIntegrityError("Capsule export sequence is older than the trusted state")
+        return header, manifest, compartments, root_key
 
     @staticmethod
     def _read(

@@ -12,9 +12,16 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Protocol
 
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-
-from .crypto import b64, canonical_json, decrypt, derive_key, encrypt, unb64
+from .crypto import (
+    b64,
+    canonical_json,
+    decrypt,
+    derive_key,
+    encrypt,
+    load_private_key,
+    public_key_bytes,
+    unb64,
+)
 from .errors import AuthenticationRequired, SoulError, SuccessionError
 from .succession import PolicyRuntime, SuccessionState
 from .types import SuccessionPolicy
@@ -83,7 +90,7 @@ class PostgresCoordinatorRepository:
         with self._connect() as connection:
             connection.execute(self.schema)
 
-    def _connect(self):
+    def _connect(self) -> Any:
         return self._psycopg.connect(self.database_url)
 
     def put(self, record: CoordinatorRecord) -> None:
@@ -222,7 +229,15 @@ class CoordinatorService:
         self.pseudonym_key = derive_key(deployment_key, b"soul-coordinator/pseudonym/v1")
         self.verifier = verifier
         self.challenges = ChallengeStore()
-        self.receipt_key = Ed25519PrivateKey.generate()
+        # Stable across restarts without storing another secret; domain-separated
+        # from database encryption and capsule pseudonyms.
+        self.receipt_key = load_private_key(
+            derive_key(deployment_key, b"soul-coordinator/receipt-signing/v1")
+        )
+
+    @property
+    def receipt_public_key(self) -> str:
+        return b64(public_key_bytes(self.receipt_key))
 
     def pseudonym(self, capsule_id: str) -> str:
         return hmac.new(self.pseudonym_key, capsule_id.encode(), hashlib.sha256).hexdigest()
@@ -345,8 +360,18 @@ def create_coordinator_app(service: CoordinatorService, *, provisioning_token: s
     def health() -> dict[str, bool]:
         return {"ok": True}
 
+    @app.get("/v1/metadata")
+    def metadata() -> dict[str, str]:
+        return {
+            "receipt_public_key": service.receipt_public_key,
+            "receipt_algorithm": "Ed25519",
+            "time_authority": "coordinator-utc",
+        }
+
     @app.post("/v1/policies")
-    def provision(body: dict[str, Any], authorization: str | None = Header(default=None)):
+    def provision(
+        body: dict[str, Any], authorization: str | None = Header(default=None)
+    ) -> dict[str, str]:
         authorize(authorization)
         policy = SuccessionPolicy(**body["policy"])
         pseudonym = service.provision(
@@ -361,11 +386,11 @@ def create_coordinator_app(service: CoordinatorService, *, provisioning_token: s
         return {"capsule_pseudonym": pseudonym, "state": "ACTIVE"}
 
     @app.post("/v1/challenges")
-    def challenge(body: dict[str, Any]):
+    def challenge(body: dict[str, Any]) -> dict[str, str]:
         return service.challenge(body["capsule_id"], body["actor"])
 
     @app.post("/v1/heartbeat")
-    def heartbeat(body: dict[str, Any]):
+    def heartbeat(body: dict[str, Any]) -> dict[str, Any]:
         record = service.assert_actor(
             capsule_id=body["capsule_id"],
             actor="owner",
@@ -375,7 +400,7 @@ def create_coordinator_app(service: CoordinatorService, *, provisioning_token: s
         return service.heartbeat(record)
 
     @app.post("/v1/guardian/claim")
-    def guardian_claim(body: dict[str, Any]):
+    def guardian_claim(body: dict[str, Any]) -> dict[str, Any]:
         guardian_id = body["guardian_id"]
         record = service.assert_actor(
             capsule_id=body["capsule_id"],
@@ -386,7 +411,7 @@ def create_coordinator_app(service: CoordinatorService, *, provisioning_token: s
         return service.claim(record, guardian_id)
 
     @app.post("/v1/release")
-    def release(body: dict[str, Any]):
+    def release(body: dict[str, Any]) -> dict[str, Any]:
         guardian_id = body["guardian_id"]
         # Never return a coordinator share to a caller that did not just prove
         # control of one of the policy's guardian passkeys.

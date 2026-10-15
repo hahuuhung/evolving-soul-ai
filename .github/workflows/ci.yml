@@ -24,7 +24,7 @@ jobs:
           cache: pip
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -e ".[server,coordinator,dev]"
-      - run: python -m pytest --cov=evolving_soul --cov-report=term-missing
+      - run: python -m pytest --cov=src/evolving_soul --cov-report=term-missing
 
   quality:
     runs-on: ubuntu-latest
@@ -42,4 +42,20 @@ jobs:
       - run: bandit -q -r src integrations
       - run: pip-audit
       - run: python -m build
+      - name: Reproducible wheel check
+        shell: bash
+        run: |
+          export SOURCE_DATE_EPOCH="$(git log -1 --pretty=%ct)"
+          python -m build --wheel --outdir dist-a
+          python -m build --wheel --outdir dist-b
+          test "$(sha256sum dist-a/*.whl | cut -d' ' -f1)" = "$(sha256sum dist-b/*.whl | cut -d' ' -f1)"
 
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

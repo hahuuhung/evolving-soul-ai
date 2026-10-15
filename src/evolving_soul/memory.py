@@ -8,6 +8,7 @@ import secrets
 from collections.abc import Iterable
 from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from .errors import ProposalStateError
 from .storage import EncryptedStore
@@ -21,13 +22,13 @@ def _parse_time(value: str) -> datetime:
     return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
 
 
-def _proposal(value: dict) -> MemoryProposal:
+def _proposal(value: dict[str, Any]) -> MemoryProposal:
     value = dict(value)
     value["provenance"] = Provenance(**value["provenance"])
     return MemoryProposal(**value)
 
 
-def _record(value: dict) -> MemoryRecord:
+def _record(value: dict[str, Any]) -> MemoryRecord:
     value = dict(value)
     value["provenance"] = Provenance(**value["provenance"])
     value["consent"] = ConsentReceipt(**value["consent"])

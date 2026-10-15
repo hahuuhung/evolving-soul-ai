@@ -7,8 +7,10 @@ import hmac
 import json
 import os
 import secrets
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from typing import Any, cast
 
 from .crypto import b64, canonical_json, unb64
 from .errors import AuthenticationRequired
@@ -46,9 +48,16 @@ class BootstrapManager:
 class PairingTokenManager:
     allowed_scopes = frozenset({"context:read", "proposal:create"})
 
-    def __init__(self, signing_secret: bytes | None = None) -> None:
+    def __init__(
+        self,
+        signing_secret: bytes | None = None,
+        *,
+        revoked: Iterable[str] = (),
+        on_revoke: Callable[[set[str]], None] | None = None,
+    ) -> None:
         self._secret = signing_secret or os.urandom(32)
-        self._revoked: set[str] = set()
+        self._revoked = set(revoked)
+        self._on_revoke = on_revoke
 
     def issue(self, open_webui_user_id: str, expires_in: timedelta = timedelta(days=30)) -> str:
         if not open_webui_user_id:
@@ -63,7 +72,7 @@ class PairingTokenManager:
         signature = b64(hmac.digest(self._secret, encoded.encode(), "sha256"))
         return f"soul_v1.{encoded}.{signature}"
 
-    def verify(self, token: str, user_id: str, required_scope: str) -> dict:
+    def verify(self, token: str, user_id: str, required_scope: str) -> dict[str, Any]:
         try:
             prefix, encoded, signature = token.split(".")
             expected = hmac.digest(self._secret, encoded.encode(), "sha256")
@@ -79,12 +88,14 @@ class PairingTokenManager:
             or datetime.now(UTC).timestamp() >= payload["exp"]
         ):
             raise AuthenticationRequired("Pairing token is expired, revoked, or out of scope")
-        return payload
+        return cast(dict[str, Any], payload)
 
     def revoke(self, token: str) -> None:
         try:
             payload = json.loads(unb64(token.split(".")[1]))
             self._revoked.add(payload["jti"])
+            if self._on_revoke is not None:
+                self._on_revoke(set(self._revoked))
         except (IndexError, KeyError, json.JSONDecodeError, ValueError):
             return
 

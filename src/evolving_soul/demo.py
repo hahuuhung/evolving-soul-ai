@@ -34,17 +34,18 @@ def main(argv: list[str] | None = None) -> int:
         app = create_app(vault, rp_id="localhost", origin="http://localhost:8765")
         issued = app.state.bootstrap_code
         print(f"SYNTHETIC DEMO bootstrap code: {issued.code}")
-        uvicorn.run(app, host="0.0.0.0", port=8765)  # noqa: S104 - container demo binding
+        uvicorn.run(app, host="0.0.0.0", port=8765)  # noqa: S104  # nosec B104
     else:
         service = CoordinatorService(
             InMemoryCoordinatorRepository(),
             deployment_key=b"synthetic-demo-deployment-key-32b",
-            verifier=PyWebAuthnAssertionVerifier(
-                rp_id="localhost", origin="http://localhost:8770"
-            ),
+            verifier=PyWebAuthnAssertionVerifier(rp_id="localhost", origin="http://localhost:8770"),
         )
-        app = create_coordinator_app(service, provisioning_token="synthetic-demo-only")
-        uvicorn.run(app, host="0.0.0.0", port=8770)  # noqa: S104 - container demo binding
+        app = create_coordinator_app(
+            service,
+            provisioning_token="synthetic-demo-only",  # noqa: S106  # nosec B106
+        )
+        uvicorn.run(app, host="0.0.0.0", port=8770)  # noqa: S104  # nosec B104
     return 0
 
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Any, Protocol
 
 from .crypto import b64, unb64
 from .errors import SoulError
@@ -20,7 +20,7 @@ class PlatformKeyring:
     service_name = "evolving-soul-ai"
 
     @staticmethod
-    def _module():
+    def _module() -> Any:
         try:
             import keyring
         except ImportError as exc:

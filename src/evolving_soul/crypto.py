@@ -5,7 +5,7 @@ from __future__ import annotations
 import base64
 import json
 import os
-from typing import Any
+from typing import Any, cast
 
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import (
@@ -38,7 +38,10 @@ def random_key() -> bytes:
 
 
 def derive_key(root_key: bytes, domain: bytes) -> bytes:
-    return HKDF(algorithm=hashes.SHA256(), length=32, salt=None, info=domain).derive(root_key)
+    return cast(
+        bytes,
+        HKDF(algorithm=hashes.SHA256(), length=32, salt=None, info=domain).derive(root_key),
+    )
 
 
 def encrypt(key: bytes, plaintext: bytes, aad: bytes) -> tuple[bytes, bytes]:
@@ -47,7 +50,7 @@ def encrypt(key: bytes, plaintext: bytes, aad: bytes) -> tuple[bytes, bytes]:
 
 
 def decrypt(key: bytes, nonce: bytes, ciphertext: bytes, aad: bytes) -> bytes:
-    return AESGCM(key).decrypt(nonce, ciphertext, aad)
+    return cast(bytes, AESGCM(key).decrypt(nonce, ciphertext, aad))
 
 
 def passphrase_wrap(secret: bytes, passphrase: str, aad: bytes) -> dict[str, Any]:
@@ -97,17 +100,23 @@ def new_signing_key() -> Ed25519PrivateKey:
 
 
 def private_key_bytes(key: Ed25519PrivateKey) -> bytes:
-    return key.private_bytes(
-        serialization.Encoding.Raw,
-        serialization.PrivateFormat.Raw,
-        serialization.NoEncryption(),
+    return cast(
+        bytes,
+        key.private_bytes(
+            serialization.Encoding.Raw,
+            serialization.PrivateFormat.Raw,
+            serialization.NoEncryption(),
+        ),
     )
 
 
 def public_key_bytes(key: Ed25519PrivateKey) -> bytes:
-    return key.public_key().public_bytes(
-        serialization.Encoding.Raw,
-        serialization.PublicFormat.Raw,
+    return cast(
+        bytes,
+        key.public_key().public_bytes(
+            serialization.Encoding.Raw,
+            serialization.PublicFormat.Raw,
+        ),
     )
 
 

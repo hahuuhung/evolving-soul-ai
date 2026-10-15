@@ -81,7 +81,7 @@ class PolicyRuntime:
 
 @dataclass(slots=True)
 class ReleaseShares:
-    guardian_mnemonics: list[list[str]]
+    guardian_mnemonics: list[str]
     coordinator_mnemonic: str
 
 

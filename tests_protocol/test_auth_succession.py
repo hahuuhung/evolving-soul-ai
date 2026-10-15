@@ -16,6 +16,20 @@ def test_bootstrap_is_one_time():
         bootstrap.consume(issued.code)
 
 
+def test_webauthn_challenge_is_expiring_and_replay_safe(tmp_path):
+    from evolving_soul.crypto import random_key
+    from evolving_soul.storage import EncryptedStore
+    from evolving_soul.webauthn_auth import WebAuthnManager
+
+    store = EncryptedStore(tmp_path / "objects.sqlite3", random_key())
+    manager = WebAuthnManager(store, rp_id="localhost", origin="http://localhost:8765")
+    ceremony_id = manager._save_challenge("authenticate", b"challenge")
+    assert manager._consume_challenge(ceremony_id, "authenticate") == b"challenge"
+    with pytest.raises(AuthenticationRequired):
+        manager._consume_challenge(ceremony_id, "authenticate")
+    store.close()
+
+
 def test_pairing_token_is_user_bound_and_narrow():
     manager = PairingTokenManager(b"x" * 32)
     token = manager.issue("open-webui-user-1")

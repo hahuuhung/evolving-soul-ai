@@ -72,7 +72,7 @@ class Filter:
             async with httpx.AsyncClient(timeout=self.valves.timeout_seconds) as client:
                 response = await client.post(
                     self.valves.sidecar_url.rstrip("/") + "/v1/context/search",
-                    json={"query": query, "token_budget": 1024},
+                    json={"query": query, "token_budget": 1024},  # nosec B105
                     headers={
                         "Authorization": f"Bearer {token}",
                         "X-Open-WebUI-User-Id": user_id,
@@ -115,7 +115,7 @@ class Filter:
             (
                 str(item.get("content", ""))
                 for item in reversed(messages)
-                if item.get("role") == "assistant"
+                if item.get("role") == "user"
             ),
             "",
         )
@@ -127,14 +127,15 @@ class Filter:
             async with httpx.AsyncClient(timeout=self.valves.timeout_seconds) as client:
                 response = await client.post(
                     self.valves.sidecar_url.rstrip("/") + "/v1/proposals",
-                    json={"content": content[:4000], "extractor": "open-webui-filter"},
+                    json={"conversation": content[:16000]},
                     headers={
                         "Authorization": f"Bearer {token}",
                         "X-Open-WebUI-User-Id": user_id,
                     },
                 )
                 response.raise_for_status()
-            await self._emit(__event_emitter__, "Memory proposal is waiting for owner review.")
+            if response.json().get("proposals"):
+                await self._emit(__event_emitter__, "Memory proposal is waiting for owner review.")
         except Exception:
             await self._emit(
                 __event_emitter__,

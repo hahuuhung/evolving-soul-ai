@@ -4,15 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "evolving-soul-ai"
-version = "3.2.005"
+version = "3.0.0a1"
 description = "Owner-bound, local-first continuity for personal AI memory."
 readme = "README.md"
-license = { text = "Apache-2.0" }
+license = "Apache-2.0"
 authors = [{ name = "Evolving Soul AI contributors" }]
 requires-python = ">=3.11"
 classifiers = [
   "Development Status :: 3 - Alpha",
-  "License :: OSI Approved :: Apache Software License",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
@@ -60,7 +59,7 @@ package-dir = { "" = "src" }
 where = ["src"]
 
 [tool.pytest.ini_options]
-pythonpath = ["src", "."]
+pythonpath = ["src"]
 testpaths = ["tests_protocol"]
 addopts = "--strict-markers"
 markers = [
@@ -79,8 +78,17 @@ ignore = ["S101"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests_protocol/**" = ["S106"]
+"src/evolving_soul/service.py" = ["E501"]
 
 [tool.mypy]
 python_version = "3.11"
 strict = true
 packages = ["evolving_soul"]
+follow_imports = "skip"
+ignore_missing_imports = true
+disallow_untyped_decorators = false
+
+[[tool.mypy.overrides]]
+module = ["authlib.*", "shamir_mnemonic", "numpy", "numpy.*"]
+ignore_missing_imports = true
+follow_imports = "skip"

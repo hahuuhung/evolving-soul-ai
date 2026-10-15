@@ -28,3 +28,9 @@ Thumbs.db
 .pytest_plan_tmp_*/
 graphify-out/
 .test-tmp-v3/
+build/
+dist/
+*.egg-info/
+.coverage
+.hypothesis/
+.mypy_cache/

@@ -30,9 +30,22 @@ Requirements: Python 3.11–3.13 and an OS keyring supported by the `keyring` pa
 
 ```bash
 python -m pip install -e ".[server,dev]"
-soul init --vault .soul-vault
-soul serve --vault .soul-vault
+
+# Cross-platform environment diagnostic
+soul doctor
+
+# Initialize & inspect vault
+soul --vault .soul-vault init
+soul --vault .soul-vault status
+
+# Run local control plane (White Theme UI with Passkey & WebAuthn)
+soul --vault .soul-vault serve
 ```
+
+### 1-Click Launchers (Windows, Linux, macOS)
+- **Linux & macOS**: `./soul.sh doctor` or 1-click UI demo: `./run_demo.sh`
+- **Windows**: `soul.bat doctor` or 1-click UI demo: `run_demo.bat`
+- See the complete [Cross-Platform Guide](docs/CROSS_PLATFORM.md) for OS keyring details, Passkey setup, and headless environments.
 
 The server prints a one-time bootstrap code that expires after ten minutes. Open
 `http://localhost:8765`, register a passkey, and use the local queue to review proposals.
@@ -113,4 +126,3 @@ sign-off and the [Contributor Covenant](CODE_OF_CONDUCT.md). Start with issues l
 `good first issue` or read [CONTRIBUTING.md](CONTRIBUTING.md).
 
 Apache-2.0 — see [LICENSE](LICENSE), [NOTICE](NOTICE), and [AUTHORS](AUTHORS).
-
