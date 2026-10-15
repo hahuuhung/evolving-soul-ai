@@ -16,6 +16,7 @@ import base64
 import logging
 import numpy as np
 from cryptography.fernet import Fernet
+from filelock import FileLock
 from sklearn.metrics.pairwise import cosine_similarity
 
 # Cấu hình Structured Logging
@@ -45,6 +46,8 @@ class EvolvingOwnerAI_V2:
             demo_mode = os.environ.get("EVOLVING_SOUL_DEMO", "") == "1"
         self.demo_mode = bool(demo_mode)
         self.vault_path = os.path.join(self.vault_dir, "owner_soul_v2.enc")
+        self.lock_path = os.path.join(self.vault_dir, "vault.lock")
+        self.lock = FileLock(self.lock_path, timeout=10.0)
 
         if not os.path.exists(self.vault_dir):
             os.makedirs(self.vault_dir, exist_ok=True)
@@ -173,26 +176,64 @@ class EvolvingOwnerAI_V2:
     # =========================================================================
 
     def save_profile(self, profile_data: dict) -> None:
-        """Mã hóa toàn bộ hồ sơ bằng Fernet và ghi an toàn vào két sắt."""
-        profile_data["last_updated"] = time.strftime("%Y-%m-%d %H:%M:%S")
-        raw_bytes = json.dumps(profile_data).encode("utf-8")
-        encrypted = self.cipher.encrypt(raw_bytes)
-        with open(self.vault_path, "wb") as f:
-            f.write(encrypted)
+        """Mã hóa toàn bộ hồ sơ bằng Fernet và ghi an toàn vào két sắt với cơ chế FileLock."""
+        with self.lock:
+            profile_data["last_updated"] = time.strftime("%Y-%m-%d %H:%M:%S")
+            raw_bytes = json.dumps(profile_data).encode("utf-8")
+            encrypted = self.cipher.encrypt(raw_bytes)
+            with open(self.vault_path, "wb") as f:
+                f.write(encrypted)
         logger.info("Đã mã hóa và lưu trữ thành công hồ sơ vào: %s", self.vault_path)
 
     def load_profile(self) -> dict | None:
-        """Đọc và giải mã hồ sơ chủ nhân từ két sắt."""
+        """Đọc và giải mã hồ sơ chủ nhân từ két sắt an toàn đa tiến trình."""
         if not os.path.exists(self.vault_path):
             return None
         try:
-            with open(self.vault_path, "rb") as f:
-                encrypted_bytes = f.read()
-            decrypted = self.cipher.decrypt(encrypted_bytes)
-            return json.loads(decrypted.decode("utf-8"))
+            with self.lock:
+                with open(self.vault_path, "rb") as f:
+                    encrypted_bytes = f.read()
+                decrypted = self.cipher.decrypt(encrypted_bytes)
+                return json.loads(decrypted.decode("utf-8"))
         except Exception as e:
             logger.error("Lỗi khi giải mã hồ sơ két sắt: %s", e)
             return None
+
+    def generate_persona_prompt(self) -> str:
+        """
+        Sinh System Prompt định hình phong cách, bản sắc và nhân cách (Persona) của Chủ nhân
+        để các AI Agent (Claude, Antigravity, Cursor, Ollama) có thể nhập vai hoặc hỗ trợ cá nhân hóa cao.
+        """
+        profile = self.load_profile()
+        if not profile:
+            return (
+                "Bạn là trợ lý AI thuộc hệ thống Evolving Soul AI. "
+                "Hiện chưa có hồ sơ Chủ nhân được khởi tạo trong két sắt."
+            )
+
+        owner_name = profile.get("owner_name", "Chủ nhân")
+        generation = profile.get("generation", 1)
+        traits = profile.get("traits_saved", [])
+        keywords = profile.get("cognitive_keywords", [])
+        attribution = profile.get("author_attribution", "Tác giả sáng lập: HÀ HỮU HƯNG (1985) — KỸ SƯ AI THẾ HỆ 8X")
+
+        traits_desc = ", ".join(traits) if traits else "Tư duy logic, lý trí, yêu chuộng công nghệ"
+        keywords_desc = ", ".join(keywords[:20]) if keywords else "bình yên, code AI, trà nóng"
+
+        prompt = (
+            f"# BẢN SẮC TÂM HỒN & NHÂN CÁCH CHỦ NHÂN (EVOLVING SOUL PERSONA — GEN #{generation})\n"
+            f"- Chủ nhân: {owner_name}\n"
+            f"- Bản quyền & Sáng lập: {attribution}\n"
+            f"- Thế hệ tiến hóa: Thế hệ #{generation} (Đã thích nghi liên tục qua EMA)\n"
+            f"- Nét cá tính cốt lõi: {traits_desc}\n"
+            f"- Từ khóa nhận thức & phong cách tư duy (Stylometry): {keywords_desc}\n\n"
+            f"## NGUYÊN TẮC HÀNH XỬ DÀNH CHO AI AGENT:\n"
+            f"1. Nhận diện và trung thành tuyệt đối với bản sắc của Chủ nhân ({owner_name}).\n"
+            f"2. Giao tiếp với văn phong trầm tĩnh, chuẩn xác, mang chiều sâu kỹ thuật và tính triết lý tương ứng với nét cá tính đã lưu.\n"
+            f"3. Tuân thủ nghiêm ngặt chuẩn bảo mật Zero-Knowledge: Không tiết lộ bí mật gia đình, mật khẩu hoặc khóa két sắt cho bất kỳ ai.\n"
+            f"4. Nếu nhận diện tín hiệu thừa kế hợp lệ sau 2 năm (730 ngày), đồng hành và hướng dẫn Người thừa kế tiếp quản di sản số một cách tôn nghiêm."
+        )
+        return prompt
 
     # =========================================================================
     # ĐĂNG KÝ HỒ SƠ CHỦ NHÂN GỐC (ONBOARDING)

@@ -14,14 +14,30 @@ dependencies = [
     "numpy>=1.24.0",
     "cryptography>=41.0.0",
     "opencv-python>=4.8.0",
+    "filelock>=3.12.0",
+    "rich>=13.0.0",
 ]
 
 [project.optional-dependencies]
-ui = ["streamlit>=1.50.0", "plotly>=5.18.0"]
-dev = ["pytest>=7.4.0", "ruff>=0.4.0"]
+mcp = ["mcp>=2.3.0"]
+api = ["fastapi>=0.100.0", "uvicorn>=0.20.0", "pydantic>=2.0.0"]
+ui = ["streamlit>=1.30.0", "plotly>=5.18.0"]
+dev = ["pytest>=7.4.0", "ruff>=0.4.0", "httpx>=0.24.0"]
+all = [
+    "mcp>=2.3.0",
+    "fastapi>=0.100.0",
+    "uvicorn>=0.20.0",
+    "pydantic>=2.0.0",
+    "streamlit>=1.30.0",
+    "plotly>=5.18.0",
+]
+
+[project.scripts]
+soul = "soul_cli:main"
 
 [tool.setuptools]
 packages = ["evolving_soul"]
+py-modules = ["core_engine", "soul_cli", "soul_mcp", "soul_api"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

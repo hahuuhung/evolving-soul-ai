@@ -20,6 +20,9 @@ venv/
 .env
 .pytest_cache/
 
-# OS files
+# OS & Cache files
 .DS_Store
 Thumbs.db
+*.lock
+.ruff_cache/
+.pytest_plan_tmp_*/
