@@ -1,9 +1,12 @@
 # 🛡️ Evolving Soul AI — AI Ghi Nhớ Chủ Nhân & Thừa Kế Di Sản Số
 
 <p align="center">
-  <b>Language / Ngôn ngữ:</b>
+  <b>Languages / Các ngôn ngữ:</b>
   <a href="#-english"><b>English</b></a> |
-  <a href="#-tiếng-việt"><b>Tiếng Việt</b></a>
+  <a href="#-tiếng-việt"><b>Tiếng Việt</b></a> |
+  <a href="README_zh.md"><b>简体中文</b></a> |
+  <a href="README_fr.md"><b>Français</b></a> |
+  <a href="README_hi.md"><b>हिन्दी</b></a>
 </p>
 
 <p align="center">
