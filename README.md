@@ -13,9 +13,16 @@
   <a href="#-license--attribution"><img src="https://img.shields.io/badge/License-MIT%20(Attribution%20Required)-blue.svg" alt="License"></a>
   <img src="https://img.shields.io/badge/Python-3.9%2B-green.svg" alt="Python Version">
   <img src="https://img.shields.io/badge/UI-Streamlit%20White%20Theme-FF4B4B.svg" alt="Streamlit UI">
+  <img src="https://img.shields.io/badge/Protocol-MCP%202.x-8A2BE2.svg" alt="Model Context Protocol">
+  <img src="https://img.shields.io/badge/CLI-Rich%20Terminal-00B4D8.svg" alt="Rich CLI">
+  <img src="https://img.shields.io/badge/API-FastAPI%20Gateway-009688.svg" alt="FastAPI Gateway">
   <a href="https://github.com/hahuuhung/evolving-soul-ai/actions"><img src="https://img.shields.io/badge/CI%2FCD-Passing-brightgreen.svg" alt="CI Status"></a>
-  <a href="#-end-to-end-e2e-testing"><img src="https://img.shields.io/badge/E2E%20Tests-6%2F6%20Passed-brightgreen.svg" alt="E2E Tests"></a>
+  <a href="#-end-to-end-e2e-testing"><img src="https://img.shields.io/badge/Tests-89%2F89%20Passed-brightgreen.svg" alt="Tests"></a>
   <a href="#-license--attribution"><img src="https://img.shields.io/badge/Author-HÀ%20HỮU%20HƯNG%20(1985)-orange.svg" alt="Author"></a>
+</p>
+
+<p align="center">
+  <img src="Future.png" alt="Evolving Soul AI Banner" width="100%" style="border-radius: 12px; box-shadow: 0 8px 16px rgba(0,0,0,0.1);">
 </p>
 
 ---
@@ -107,11 +114,38 @@ Designed with a clean, professional **White Theme** layout (`#FFFFFF` cards, `#F
 pip install -r requirements.txt
 ```
 
-#### 3. Run the Application
-```bash
-streamlit run app_ui.py
-```
-Access the web dashboard in your browser at `http://localhost:8501`.
+#### 3. Choose Your Interface (3-in-1 Gateway)
+
+* **Web UI (Streamlit White Theme):**
+  ```bash
+  streamlit run app_ui.py
+  ```
+  Access the web dashboard in your browser at `http://localhost:8501`.
+
+* **Rich CLI (Command Line & Automation):**
+  ```bash
+  # View identity status & radar metrics
+  python soul_cli.py status
+
+  # Machine-readable JSON output for scripting / CI-CD
+  python soul_cli.py status --json
+
+  # Export dynamic AI companion Persona Prompt
+  python soul_cli.py persona
+  ```
+
+* **MCP Server 2.x (Claude Desktop & Antigravity IDE):**
+  ```bash
+  # Launch Model Context Protocol server via stdio
+  python soul_cli.py mcp --stdio
+  ```
+  *(See `claude_desktop_config.json` and `mcp_config.json` for one-click IDE setup).*
+
+* **REST API Gateway (FastAPI + Swagger UI):**
+  ```bash
+  python soul_cli.py serve --port 8080
+  ```
+  Interactive documentation available at `http://localhost:8080/docs`.
 
 ---
 
@@ -240,11 +274,38 @@ $$S_t = (1 - \alpha) \cdot S_{t-1} + \alpha \cdot X_t$$
 pip install -r requirements.txt
 ```
 
-#### 3. Khởi chạy Ứng dụng Giao diện (Streamlit White Theme)
-```bash
-streamlit run app_ui.py
-```
-Trình duyệt sẽ tự động mở giao diện tại: `http://localhost:8501`.
+#### 3. Lựa Chọn Cổng Tương Tác (3-in-1 Gateway)
+
+* **Giao Diện Web Trực Quan (Streamlit White Theme):**
+  ```bash
+  streamlit run app_ui.py
+  ```
+  Trình duyệt sẽ tự động mở giao diện tại: `http://localhost:8501`.
+
+* **Giao Diện Dòng Lệnh Chuyên Nghiệp (Rich CLI):**
+  ```bash
+  # Xem dashboard trạng thái & 5 trụ cột radar
+  python soul_cli.py status
+
+  # Xuất định dạng JSON máy đọc được cho script tự động hóa / CI-CD
+  python soul_cli.py status --json
+
+  # Xuất System Persona Prompt để nạp vào prompt cho các LLMs khác
+  python soul_cli.py persona
+  ```
+
+* **MCP Server 2.x (Kết nối Claude Desktop, Antigravity IDE, Cursor):**
+  ```bash
+  # Khởi chạy Model Context Protocol server qua stdio
+  python soul_cli.py mcp --stdio
+  ```
+  *(Xem file `claude_desktop_config.json` và `mcp_config.json` để tích hợp 1-click vào IDE).*
+
+* **Cổng REST API Gateway (FastAPI + Swagger UI):**
+  ```bash
+  python soul_cli.py serve --port 8080
+  ```
+  Tài liệu API tương tác trực tiếp tại: `http://localhost:8080/docs`.
 
 ---
 
