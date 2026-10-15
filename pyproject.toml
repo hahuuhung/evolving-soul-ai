@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "evolving-soul-ai"
-version = "3.0.0"
+version = "3.2.005"
 description = "Mô hình AI nhỏ gọn ghi nhớ & nhận diện Chủ nhân phi sinh trắc học, thừa kế Di sản Số"
 readme = "README.md"
 license = { file = "LICENSE" }

@@ -11,6 +11,7 @@
 
 <p align="center">
   <a href="#-license--attribution"><img src="https://img.shields.io/badge/License-MIT%20(Attribution%20Required)-blue.svg" alt="License"></a>
+  <img src="https://img.shields.io/badge/Version-v3.2.005-blue.svg" alt="Version">
   <img src="https://img.shields.io/badge/Python-3.9%2B-green.svg" alt="Python Version">
   <img src="https://img.shields.io/badge/UI-Streamlit%20White%20Theme-FF4B4B.svg" alt="Streamlit UI">
   <img src="https://img.shields.io/badge/Protocol-MCP%202.x-8A2BE2.svg" alt="Model Context Protocol">

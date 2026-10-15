@@ -18,7 +18,7 @@ from evolving_soul.errors import (
     VaultNotFoundError,
 )
 
-__version__ = "3.0.0"
+__version__ = "3.2.005"
 
 __all__ = [
     "AUTHOR_ATTRIBUTION",

@@ -74,7 +74,7 @@ API Gateway chuẩn quốc tế phục vụ kết nối các hệ thống ngoài
 - **Tiến hóa thời gian**: Thuật toán EMA tự thích nghi liên tục $S_t = 0.85 \\cdot S_{t-1} + 0.15 \\cdot X_t$.
 - **Di sản số**: Giao thức Dead Man's Switch 2 năm (730 ngày) chuyển giao an toàn cho người thừa kế.
     """,
-    version="2.0.0",
+    version="3.2.005",
     contact={
         "name": "HÀ HỮU HƯNG (1985) — KỸ SƯ AI THẾ HỆ 8X",
         "url": "https://github.com/hahuuhung/evolving-soul-ai"
@@ -143,7 +143,7 @@ def get_health() -> dict[str, Any]:
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
         "vault_initialized": profile is not None,
         "author": "HÀ HỮU HƯNG (1985) — KỸ SƯ AI THẾ HỆ 8X",
-        "version": "2.0.0"
+        "version": "3.2.005"
     }
 
 

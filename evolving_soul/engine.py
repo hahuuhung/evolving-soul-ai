@@ -13,12 +13,15 @@ Tác giả sáng lập: HÀ HỮU HƯNG (1985) — KỸ SƯ AI THẾ HỆ 8X
 from __future__ import annotations
 
 import copy
+import functools
 import hashlib
 import logging
 import os
 import time
 from pathlib import Path
 from typing import Callable
+
+from filelock import FileLock
 
 from evolving_soul import legacy, legacy_v2, scoring
 from evolving_soul.audit import AuditLog
@@ -34,6 +37,23 @@ logger = logging.getLogger("evolving_soul.engine")
 
 SECONDS_PER_DAY = 86400.0
 TRUST_HISTORY_LIMIT = 50
+LOCK_FILE = "vault.lock"
+LOCK_TIMEOUT_SECONDS = 30.0
+
+
+def _exclusive(method):
+    """
+    Khóa liên tiến trình (FileLock) quanh mọi thao tác đọc-sửa-ghi két sắt, để UI, CLI, MCP và REST API
+    chạy đồng thời không ghi đè lẫn nhau. FileLock cho phép gọi lồng nhau trong cùng luồng.
+    """
+
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+        Path(self.settings.vault_dir).mkdir(parents=True, exist_ok=True)
+        with self._file_lock:
+            return method(self, *args, **kwargs)
+
+    return wrapper
 
 
 class EvolvingSoulEngine:
@@ -56,6 +76,7 @@ class EvolvingSoulEngine:
             base_seconds=self.settings.lockout_base_seconds,
             clock=clock,
         )
+        self._file_lock = FileLock(str(Path(self.settings.vault_dir) / LOCK_FILE), timeout=LOCK_TIMEOUT_SECONDS)
         self._clock = clock
         self._device_probe = device_probe
         self._session: VaultSession | None = None
@@ -101,12 +122,14 @@ class EvolvingSoulEngine:
         """Bản sao hồ sơ đã giải mã (chỉ khi két sắt đang mở khóa)."""
         return copy.deepcopy(self._profile) if self._profile is not None else None
 
+    @_exclusive
     def create_vault(self, passphrase: str) -> None:
         self._session = self.vault.initialize(passphrase)
         self._profile = None
         self._owner_verified_at = None
         self.audit.append("vault_created", "ok")
 
+    @_exclusive
     def unlock(self, passphrase: str) -> None:
         self.guard.check("unlock")
         try:
@@ -127,6 +150,7 @@ class EvolvingSoulEngine:
         self._owner_verified_at = None
         logger.info("vault_locked")
 
+    @_exclusive
     def change_passphrase(self, new_passphrase: str) -> None:
         """Đổi passphrase (chỉ bọc lại khóa chủ). Yêu cầu Chủ nhân đã xác minh trong phiên."""
         session = self._require_unlocked()
@@ -186,6 +210,7 @@ class EvolvingSoulEngine:
     # ĐĂNG KÝ CHỦ NHÂN (GEN #1)
     # =====================================================================
 
+    @_exclusive
     def register_owner(self, data: dict, force: bool = False) -> dict:
         """
         Khởi tạo 'Hạt giống Số' của Chủ nhân.
@@ -223,6 +248,7 @@ class EvolvingSoulEngine:
     # XÁC MINH & TIẾN HÓA
     # =====================================================================
 
+    @_exclusive
     def verify_owner(self, data: dict) -> dict:
         """
         Xác minh Chủ nhân; nếu đạt thì tiến hóa lên Gen #N+1 theo S_t = (1-α)·S_{t-1} + α·X_t.
@@ -302,6 +328,7 @@ class EvolvingSoulEngine:
         """Đã chuyển dữ liệu V2 vào két V3, chờ Chủ nhân xác minh lần đầu để dựng mô hình V3."""
         return bool((self._profile or {}).get("migration_pending"))
 
+    @_exclusive
     def migrate_from_v2(self, new_passphrase: str, v2_phrase: str = legacy_v2.V2_DEFAULT_PHRASE) -> dict:
         """
         Bước 1: giải mã két V2, tạo két V3 với passphrase mới, giữ dữ liệu V2 bên trong (đã mã hóa V3)
@@ -386,6 +413,7 @@ class EvolvingSoulEngine:
     # DI SẢN SỐ — PHÍA CHỦ NHÂN
     # =====================================================================
 
+    @_exclusive
     def seal_legacy(
         self,
         *,
@@ -421,6 +449,7 @@ class EvolvingSoulEngine:
         self._save()
         return self.legacy_status()
 
+    @_exclusive
     def legacy_status(self) -> dict | None:
         """Trạng thái Dead Man's Switch cho Chủ nhân (két sắt đang mở khóa)."""
         self._require_unlocked()
@@ -428,6 +457,7 @@ class EvolvingSoulEngine:
         config = (self._profile or {}).get("legacy")
         return legacy.status(config, self.now(), self.settings) if config else None
 
+    @_exclusive
     def revoke_legacy(self) -> None:
         session = self._require_unlocked()
         self.require_owner_verified()
@@ -441,6 +471,7 @@ class EvolvingSoulEngine:
     # DI SẢN SỐ — CỔNG TIẾP QUẢN CỦA NGƯỜI THỪA KẾ
     # =====================================================================
 
+    @_exclusive
     def claim_legacy(
         self,
         *,
