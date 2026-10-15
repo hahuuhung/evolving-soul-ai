@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+title: Evolving Soul AI
+message: If you use this software in research, cite this repository and release.
+type: software
+version: 3.0.0a1
+date-released: 2026-10-15
+license: Apache-2.0
+authors:
+  - name: Evolving Soul AI contributors
+repository-code: https://github.com/evolving-soul-ai/evolving-soul-ai
+
