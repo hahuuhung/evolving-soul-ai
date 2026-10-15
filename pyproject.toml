@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "evolving-soul-ai"
+version = "3.0.0"
+description = "Mô hình AI nhỏ gọn ghi nhớ & nhận diện Chủ nhân phi sinh trắc học, thừa kế Di sản Số"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "HÀ HỮU HƯNG (1985) — KỸ SƯ AI THẾ HỆ 8X" }]
+requires-python = ">=3.9"
+dependencies = [
+    "numpy>=1.24.0",
+    "cryptography>=41.0.0",
+    "opencv-python>=4.8.0",
+]
+
+[project.optional-dependencies]
+ui = ["streamlit>=1.30.0", "plotly>=5.18.0"]
+dev = ["pytest>=7.4.0", "ruff>=0.4.0"]
+
+[tool.setuptools]
+packages = ["evolving_soul"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+markers = [
+    "models: cần model ONNX YuNet/SFace (tự bỏ qua khi không có)",
+    "slow: kiểm thử hiệu chỉnh FAR/FRR",
+]
+
+[tool.ruff]
+line-length = 140
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = ["E501", "UP006", "UP007", "UP012", "UP035"]

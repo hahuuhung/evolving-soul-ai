@@ -2,6 +2,12 @@
 vault/
 vault_e2e_test/
 *.enc
+*.enc.bak
+*.v2.bak
+guard.json
+
+# Model ONNX sinh trắc học (tự tải về, kiểm tra SHA-256)
+models/
 *.pkl
 trainer/
 owner_model.yml

@@ -32,3 +32,27 @@ $env:EVOLVING_SOUL_DEMO="1"; streamlit run app_ui.py
 **Kiểm thử**: `test_security_regressions.py` — 5 test hồi quy (ghi đè hồ sơ, niêm phong khi chưa xác minh, giả lập ngày ngoài demo, giả lập ngày trong demo, đọc biến môi trường). Tổng: 11/11 pass.
 
 **Còn tồn tại (xử lý ở các giai đoạn sau)**: khóa vault mặc định viết cứng, băm 4 chữ số, sinh trắc học histogram.
+
+---
+
+## Giai đoạn 1 — Package `evolving_soul/` & két sắt an toàn
+
+**Mô-đun mới**
+
+| Mô-đun | Vai trò |
+|---|---|
+| `config.py` | `Settings` tập trung: alpha=0.15, ngưỡng 0.72, 730 ngày, trọng số 5 trụ cột, giới hạn chống dò, `kdf_n`. `Settings.from_env()` đọc `EVOLVING_SOUL_DEMO`, `EVOLVING_SOUL_VAULT_DIR`, `EVOLVING_SOUL_MODEL_DIR`. |
+| `errors.py` | Ngoại lệ có kiểu: `VaultLockedError`, `VaultCorruptError`, `VaultNotFoundError`, `ProfileExistsError`, `OwnerNotVerifiedError`, `LockedOutError`. |
+| `crypto.py` | Scrypt (salt 16 byte), HKDF tách khóa con Fernet / HMAC, `SoulCipher.digest()` = HMAC-SHA256 64 hex theo miền, chuẩn hóa NFC + bỏ dấu cho tên. |
+| `vault.py` | Khóa chủ ngẫu nhiên 32 byte được **bọc** bằng passphrase Chủ nhân (`keys.json`), và sau này bằng mật ước gia đình. Ghi nguyên tử + `.bak`. |
+| `guard.py` | Sai 5 lần liên tiếp → khóa 15 phút, mỗi lần khóa tiếp theo nhân đôi; tách theo kênh (`owner`, `kin`). |
+| `logging_setup.py` | `configure_logging()` chỉ gọi từ ứng dụng; logger theo module `evolving_soul.*`, ngữ cảnh dạng `key=value`. |
+
+**Vì sao bọc khóa chủ (key wrapping)?**
+- Không còn khóa mặc định viết cứng trong mã nguồn.
+- Người thừa kế mở két bằng mật ước gia đình mà **không cần** biết passphrase của Chủ nhân.
+- Đổi passphrase chỉ cần bọc lại khóa, không phải mã hóa lại toàn bộ hồ sơ.
+
+**Mô hình đe dọa (giới hạn đã biết)**: ứng dụng chạy cục bộ, không có máy chủ tin cậy, nên mốc 730 ngày được thực thi bằng logic ứng dụng chứ không phải bằng mật mã. Người có cả file két sắt lẫn mật ước gia đình về lý thuyết có thể giải mã offline. Scrypt khiến việc dò mật ước tốn kém.
+
+**Kiểm thử**: `tests/test_crypto.py`, `tests/test_vault.py` — 16 test (passphrase sai, khôi phục từ `.bak`, không có plaintext trên đĩa, bọc khóa di sản, khóa tăng dần).
