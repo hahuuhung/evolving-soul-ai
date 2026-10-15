@@ -1,0 +1,50 @@
+/*
+  White Theme — Evolving Soul AI V3 (CLAUDE.md §3)
+  Tác giả sáng lập: HÀ HỮU HƯNG (1985) — KỸ SƯ AI THẾ HỆ 8X
+*/
+.stApp {
+    background-color: #F8FAFC;
+    color: #0F172A;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+h1, h2, h3, h4 { color: #0F172A; font-weight: 700; }
+
+.stTabs [data-baseweb="tab-list"] { gap: 8px; background-color: #F1F5F9; padding: 6px; border-radius: 10px; }
+.stTabs [data-baseweb="tab"] { border-radius: 8px; padding: 8px 18px; font-weight: 600; color: #475569; background-color: transparent; }
+.stTabs [aria-selected="true"] { background-color: #FFFFFF !important; color: #2563EB !important; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05); }
+
+div.stButton > button[kind="primary"], div.stFormSubmitButton > button[kind="primary"] {
+    background-color: #2563EB; color: #FFFFFF; border: none; border-radius: 8px; font-weight: 600; transition: all 0.2s ease;
+}
+div.stButton > button[kind="primary"]:hover, div.stFormSubmitButton > button[kind="primary"]:hover {
+    background-color: #1D4ED8; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+}
+
+.es-brand { text-align: center; margin: 8px 0 20px; }
+.es-brand h2 { margin-bottom: 0; }
+.es-muted { color: #64748B; font-size: 14px; }
+
+.badge-author {
+    background: #EFF6FF; border: 1px solid #BFDBFE; border-left: 4px solid #2563EB; border-radius: 8px; padding: 12px 16px; margin-top: 8px;
+}
+.badge-author small { display: block; font-size: 11px; color: #64748B; font-weight: 600; text-transform: uppercase; }
+.badge-author strong { display: block; font-size: 14px; color: #1E3A8A; margin-top: 2px; }
+.badge-author span { display: block; font-size: 12px; color: #2563EB; font-weight: 600; }
+
+.es-pill { display: inline-block; border-radius: 999px; padding: 2px 10px; font-size: 12px; font-weight: 600; }
+.es-pill.green { background: #ECFDF5; color: #047857; }
+.es-pill.amber { background: #FFFBEB; color: #B45309; }
+.es-pill.blue { background: #EFF6FF; color: #1D4ED8; }
+.es-pill.red { background: #FEF2F2; color: #DC2626; }
+.es-pill.gray { background: #F1F5F9; color: #64748B; }
+
+.es-demo { background: #FFFBEB; border: 1px solid #FDE68A; border-left: 4px solid #D97706; border-radius: 8px; padding: 8px 12px; color: #92400E; font-size: 13px; }
+
+.passport-box {
+    background: linear-gradient(135deg, #FFFFFF 0%, #F0FDF4 100%); border: 2px solid #059669; border-radius: 16px; padding: 24px;
+    box-shadow: 0 10px 15px -3px rgba(5, 150, 105, 0.08);
+}
+.legacy-box {
+    background: linear-gradient(135deg, #FFFFFF 0%, #FEF3C7 100%); border: 2px solid #D97706; border-radius: 16px; padding: 24px;
+    box-shadow: 0 10px 15px -3px rgba(217, 119, 6, 0.08);
+}

@@ -148,3 +148,27 @@ Hash V2 chỉ có 4 chữ số nên không thể chuyển thẳng sang HMAC. Mig
 **Di sản V2**: không mang theo hash 4 chữ số (quá yếu). Danh mục tài sản, lời nhắn, tên người thừa kế được giữ trong `legacy_v2_pending` để giao diện điền sẵn khi Chủ nhân **niêm phong lại**. Cho tới khi niêm phong lại, người thừa kế chưa thể tiếp quản — giao diện sẽ cảnh báo rõ.
 
 **Kiểm thử**: `tests/test_migration.py` — 5 test (cụm từ V2 sai/tùy chỉnh, kẻ lạ không hoàn tất được migration, không đăng ký chen ngang khi đang chờ, không migrate hai lần, không còn plaintext V2 trên đĩa). Tổng 71 test V3.
+
+---
+
+## Giai đoạn 5 — Giao diện V3
+
+Mockup `docs/mockups/v3_ui.html` đã được duyệt trước khi code (CLAUDE.md §3). `app_ui.py` được viết lại theo mockup:
+
+| Màn hình | Nội dung |
+|---|---|
+| **A. Khóa két** | Mở két bằng passphrase · Tạo két mới · Nâng cấp từ V2 (khi phát hiện `owner_soul_v2.enc`) · Lối vào Cổng người thừa kế (chỉ bật khi đã niêm phong di sản). |
+| **Khởi tạo hồ sơ** | Hiện khi két đã mở nhưng chưa có hồ sơ. |
+| **1. Xác minh & Tiến hóa** | Form + kết quả: điểm tin cậy so với ngưỡng, cổng tri thức, radar 5 trụ cột (gốc EMA vs phiên hiện tại), điểm từng trụ cột, biểu đồ lịch sử 50 phiên. |
+| **2. Hộ chiếu Số** | Soul ID ổn định (dẫn xuất một chiều), dữ liệu đã che. |
+| **3. Di sản Số** | Đồng hồ Dead Man's Switch (vắng mặt / ngưỡng / còn lại, cảnh báo 90%), form niêm phong khóa cho tới khi Chủ nhân xác minh, điền sẵn di sản từ V2. |
+| **4. Nhật ký** | 50 sự kiện gần nhất + trạng thái toàn vẹn chuỗi băm. |
+| **5. Cài đặt** | Đổi passphrase, khởi tạo lại hồ sơ (vùng nguy hiểm). |
+| **E. Cổng người thừa kế** | Camera hoặc tải ảnh, điểm tri thức + sinh trắc, chứng thư chuyển giao. |
+
+- Mỗi phiên trình duyệt giữ một `EvolvingSoulEngine` riêng trong `st.session_state` → trạng thái "đã xác minh" không bị chia sẻ giữa các phiên.
+- Nếu đặt `EVOLVING_SOUL_PASSPHRASE`, ứng dụng tự mở két khi khởi động (chỉ nên dùng trên máy cá nhân).
+- CSS White Theme tách ra `assets/theme.css`; mọi dữ liệu người dùng đưa vào HTML đều qua `html.escape`.
+- Yêu cầu `streamlit>=1.50` (1.50.0 là bản cuối hỗ trợ Python 3.9); `show_chart()` tự chọn `width="stretch"` hoặc `use_container_width` theo phiên bản.
+
+**Kiểm thử**: `tests/test_app_ui.py` (Streamlit AppTest, headless) — hành trình đầy đủ Chủ nhân → niêm phong → khóa → người thừa kế tiếp quản ở chế độ demo; sai passphrase hiện lỗi thân thiện; không có thanh trượt ngoài chế độ demo. Toàn bộ 74 test V3 pass trên Python 3.13 + Streamlit 1.66 và Python 3.9 + Streamlit 1.50.

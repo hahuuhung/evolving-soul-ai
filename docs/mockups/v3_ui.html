@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Evolving Soul AI V3 — Mockup giao diện</title>
+<!--
+  Mockup giao diện V3 (White Theme, CLAUDE.md §3) — phác thảo trước khi hiện thực hóa bằng Streamlit.
+  Tác giả sáng lập: HÀ HỮU HƯNG (1985) — KỸ SƯ AI THẾ HỆ 8X
+-->
+<style>
+  :root {
+    --bg: #F8FAFC; --card: #FFFFFF; --line: #E2E8F0; --line-strong: #CBD5E1;
+    --blue: #2563EB; --blue-soft: #EFF6FF; --green: #059669; --green-soft: #ECFDF5;
+    --amber: #D97706; --amber-soft: #FFFBEB; --red: #DC2626; --red-soft: #FEF2F2;
+    --title: #0F172A; --text: #334155; --muted: #64748B;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 Inter, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  h1, h2, h3, h4 { color: var(--title); margin: 0 0 8px; }
+  .page { max-width: 1240px; margin: 0 auto; padding: 32px 16px 64px; }
+  .screen-label { display: flex; align-items: baseline; gap: 12px; margin: 48px 0 12px; }
+  .screen-label .tag { background: var(--title); color: #fff; border-radius: 6px; padding: 2px 10px; font-weight: 700; font-size: 12px; }
+  .screen-label p { margin: 0; color: var(--muted); }
+  .frame { background: var(--bg); border: 1px solid var(--line-strong); border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px -12px rgba(15, 23, 42, .18); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; }
+  .grid { display: grid; gap: 16px; }
+  .g2 { grid-template-columns: 1fr 1fr; } .g3 { grid-template-columns: repeat(3, 1fr); } .g-12 { grid-template-columns: 1.15fr 1fr; }
+  @media (max-width: 860px) { .g2, .g3, .g-12, .app { grid-template-columns: 1fr !important; } .sidebar { border-right: 0 !important; border-bottom: 1px solid var(--line); } }
+  label { display: block; font-weight: 600; color: var(--title); margin: 12px 0 4px; font-size: 13px; }
+  .input { width: 100%; border: 1px solid var(--line-strong); border-radius: 8px; padding: 9px 12px; background: #fff; color: var(--muted); min-height: 38px; }
+  .input.area { min-height: 64px; }
+  .btn { display: inline-flex; justify-content: center; align-items: center; gap: 6px; width: 100%; border: 0; border-radius: 8px; padding: 10px 16px; font-weight: 600; margin-top: 14px; cursor: default; }
+  .btn.primary { background: var(--blue); color: #fff; }
+  .btn.green { background: var(--green); color: #fff; }
+  .btn.amber { background: var(--amber); color: #fff; }
+  .btn.ghost { background: #fff; color: var(--text); border: 1px solid var(--line-strong); }
+  .btn.danger { background: #fff; color: var(--red); border: 1px solid #FECACA; }
+  .btn[disabled] { background: #E2E8F0; color: #94A3B8; }
+  .hint { color: var(--muted); font-size: 12px; margin-top: 4px; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 600; }
+  .pill.green { background: var(--green-soft); color: #047857; } .pill.amber { background: var(--amber-soft); color: #B45309; }
+  .pill.blue { background: var(--blue-soft); color: #1D4ED8; } .pill.red { background: var(--red-soft); color: var(--red); } .pill.gray { background: #F1F5F9; color: var(--muted); }
+  .banner { border-radius: 10px; padding: 12px 14px; border: 1px solid; font-size: 13px; }
+  .banner.amber { background: var(--amber-soft); border-color: #FDE68A; color: #92400E; }
+  .banner.blue { background: var(--blue-soft); border-color: #BFDBFE; color: #1E3A8A; }
+  .banner.red { background: var(--red-soft); border-color: #FECACA; color: #991B1B; }
+  .banner.green { background: var(--green-soft); border-color: #A7F3D0; color: #065F46; }
+  .note { border-left: 3px solid var(--blue); background: #fff; padding: 8px 12px; color: var(--muted); font-size: 12px; margin-top: 10px; border-radius: 0 8px 8px 0; }
+  /* App shell */
+  .app { display: grid; grid-template-columns: 260px 1fr; min-height: 640px; }
+  .sidebar { background: #fff; border-right: 1px solid var(--line); padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+  .main { padding: 24px; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 6px; background: #F1F5F9; padding: 6px; border-radius: 10px; margin: 16px 0 20px; }
+  .tab { padding: 7px 14px; border-radius: 8px; font-weight: 600; color: #475569; font-size: 13px; }
+  .tab.on { background: #fff; color: var(--blue); box-shadow: 0 2px 4px rgba(0,0,0,.05); }
+  .metric { font-size: 12px; color: var(--muted); } .metric b { display: block; font-size: 22px; color: var(--title); }
+  .author { background: var(--blue-soft); border: 1px solid #BFDBFE; border-left: 4px solid var(--blue); border-radius: 8px; padding: 10px 12px; margin-top: auto; }
+  .author small { display: block; color: var(--muted); font-weight: 600; font-size: 10px; text-transform: uppercase; }
+  .author strong { color: #1E3A8A; } .author span { display: block; color: var(--blue); font-size: 12px; font-weight: 600; }
+  .bar { height: 8px; background: #F1F5F9; border-radius: 99px; overflow: hidden; } .bar > i { display: block; height: 100%; border-radius: 99px; }
+  .pillar { display: grid; grid-template-columns: 170px 1fr 44px; gap: 10px; align-items: center; margin: 7px 0; font-size: 13px; }
+  .pillar em { font-style: normal; text-align: right; font-weight: 700; color: var(--title); }
+  .score { display: flex; align-items: baseline; gap: 10px; } .score b { font-size: 40px; color: var(--green); line-height: 1; }
+  .threshold { position: relative; height: 10px; background: linear-gradient(90deg, #FEE2E2 0 62%, #D1FAE5 62% 100%); border-radius: 99px; margin: 12px 0 4px; }
+  .threshold i { position: absolute; top: -4px; width: 4px; height: 18px; background: var(--title); border-radius: 2px; }
+  .threshold span { position: absolute; top: 14px; font-size: 11px; color: var(--muted); transform: translateX(-50%); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; } th { text-align: left; color: var(--muted); font-weight: 600; font-size: 12px; }
+  th, td { padding: 8px 6px; border-bottom: 1px solid var(--line); } code { font-size: 12px; background: #F1F5F9; padding: 1px 6px; border-radius: 4px; }
+  .locked { position: relative; } .locked::after { content: "🔒 Xác minh Chủ nhân ở Tab 1 để mở khóa"; position: absolute; inset: 0; background: rgba(248,250,252,.82); display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--title); border-radius: var(--radius); }
+  .legacy-box { background: linear-gradient(135deg, #fff 0%, #FEF3C7 100%); border: 2px solid var(--amber); border-radius: 16px; padding: 20px; }
+  .passport { background: linear-gradient(135deg, #fff 0%, #F0FDF4 100%); border: 2px solid var(--green); border-radius: 16px; padding: 22px; }
+  .drop { border: 2px dashed var(--line-strong); border-radius: 10px; padding: 18px; text-align: center; color: var(--muted); background: #fff; margin-top: 4px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; } .chip { border: 1px solid var(--line-strong); border-radius: 999px; padding: 3px 10px; font-size: 12px; background: #fff; }
+  .chip.on { border-color: var(--blue); background: var(--blue-soft); color: #1D4ED8; }
+  .legend { display: flex; gap: 14px; justify-content: center; font-size: 12px; color: var(--muted); } .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+  .ann { counter-increment: ann; } .ann::before { content: counter(ann); display: inline-flex; width: 18px; height: 18px; border-radius: 50%; background: var(--amber); color: #fff; font-size: 11px; font-weight: 700; align-items: center; justify-content: center; margin-right: 6px; }
+  .legend-list { counter-reset: ann; } .legend-list li { list-style: none; margin: 6px 0; }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>🛡️ Evolving Soul AI V3 — Mockup giao diện</h1>
+  <p style="color:var(--muted);max-width:820px">Phác thảo trực quan theo CLAUDE.md §3 trước khi hiện thực hóa bằng Streamlit. White Theme: nền <code>#FFFFFF / #F8FAFC</code>, viền <code>#E2E8F0 / #CBD5E1</code>, thương hiệu <code>#2563EB</code> · <code>#059669</code>, di sản <code>#D97706</code>. Số liệu minh họa.</p>
+
+  <div class="card" style="margin-top:16px">
+    <h4>Luồng điều hướng V3</h4>
+    <ul class="legend-list" style="padding:0;margin:0">
+      <li class="ann"><b>Màn hình khóa</b> là cửa vào duy nhất: mở két bằng passphrase, tạo két mới, nâng cấp từ V2, hoặc vào <b>Cổng Người thừa kế</b> (không cần passphrase).</li>
+      <li class="ann">Sau khi mở két: chưa có hồ sơ → chỉ hiện form <b>Khởi tạo hồ sơ</b>; đã có → 5 tab.</li>
+      <li class="ann">Niêm phong di sản, khởi tạo lại hồ sơ, đổi passphrase chỉ mở khi Chủ nhân <b>đã xác minh trong 15 phút</b> gần nhất.</li>
+      <li class="ann">Chế độ demo (<code>EVOLVING_SOUL_DEMO=1</code>) hiện banner hổ phách và thanh trượt mô phỏng số ngày offline; chế độ thường không có.</li>
+    </ul>
+  </div>
+
+  <!-- ================================================================== -->
+  <div class="screen-label"><span class="tag">A</span><h3>Màn hình khóa</h3><p>Két sắt chưa mở · phát hiện két V2</p></div>
+  <div class="frame" style="padding:28px">
+    <div style="text-align:center;margin-bottom:22px">
+      <h2>🛡️ Evolving Soul AI</h2>
+      <p style="color:var(--muted);margin:0">AI ghi nhớ & nhận diện Chủ nhân · Thừa kế Di sản Số 730 ngày</p>
+    </div>
+    <div class="banner amber" style="max-width:880px;margin:0 auto 16px">⬆️ <b>Phát hiện két sắt V2.</b> Đặt passphrase mới để nâng cấp lên V3. Lần xác minh đầu tiên sẽ dùng thuật toán V2 để chứng minh bạn là Chủ nhân, sau đó file V2 bị xóa.</div>
+    <div class="grid g3" style="max-width:880px;margin:0 auto">
+      <div class="card">
+        <h4>🔑 Mở két sắt</h4>
+        <label>Passphrase của Chủ nhân</label><div class="input">••••••••••••••</div>
+        <button class="btn primary">Mở khóa</button>
+        <div class="banner red" style="margin-top:12px">⏳ Sai 5 lần liên tiếp — thử lại sau 15 phút.</div>
+      </div>
+      <div class="card">
+        <h4>⬆️ Nâng cấp từ V2</h4>
+        <label>Passphrase V3 mới (≥ 8 ký tự)</label><div class="input">••••••••••••</div>
+        <label>Nhập lại passphrase</label><div class="input">••••••••••••</div>
+        <label>Cụm từ bí mật V2 <span class="hint">(để trống nếu dùng mặc định)</span></label><div class="input"></div>
+        <button class="btn amber">Nâng cấp két sắt</button>
+        <p class="hint">Khi chưa có két: thẻ này đổi thành <b>Tạo két sắt mới</b> (nút xanh).</p>
+      </div>
+      <div class="card" style="background:var(--amber-soft);border-color:#FDE68A">
+        <h4>🕊️ Cổng Người thừa kế</h4>
+        <p style="margin:0 0 8px">Dành cho người thân được Chủ nhân niêm phong Di sản Số. Không cần passphrase của Chủ nhân.</p>
+        <button class="btn ghost">Vào cổng tiếp quản →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================== -->
+  <div class="screen-label"><span class="tag">B</span><h3>Tab 1 — Xác minh & Tiến hóa</h3><p>Sau khi xác minh thành công</p></div>
+  <div class="frame app">
+    <aside class="sidebar">
+      <div><h4 style="margin:0">🛡️ Evolving Soul AI</h4><span class="hint">V3.0.0</span></div>
+      <div class="banner amber" style="padding:8px 10px">🧪 <b>CHẾ ĐỘ DEMO</b> — mô phỏng thời gian đang bật</div>
+      <div class="card" style="padding:14px">
+        <div class="hint">Chủ nhân</div><b style="color:var(--title)">HÀ HỮU HƯNG (1985)</b>
+        <div class="metric" style="margin-top:8px">Thế hệ tiến hóa<b>Gen #18</b></div>
+        <span class="pill green" style="margin-top:8px">● Đã xác minh · còn 12 phút</span>
+      </div>
+      <div class="card" style="padding:14px">
+        <div class="hint">Di sản Số</div>
+        <b style="color:var(--title)">Còn 712 / 730 ngày</b>
+        <div class="bar" style="margin-top:6px"><i style="width:2.5%;background:var(--green)"></i></div>
+        <span class="hint">Lần xác minh cuối: hôm nay</span>
+      </div>
+      <button class="btn ghost" style="margin-top:0">🔒 Khóa két sắt</button>
+      <div class="author"><small>Mã nguồn mở có bản quyền</small><strong>Tác giả: HÀ HỮU HƯNG (1985)</strong><span>⚡ KỸ SƯ AI THẾ HỆ 8X</span></div>
+    </aside>
+    <main class="main">
+      <h2>🧬 Hệ thống AI Ghi nhớ & Nhận diện Chủ nhân Tiến hóa</h2>
+      <div class="tabs"><span class="tab on">1️⃣ Xác minh & Tiến hóa</span><span class="tab">2️⃣ Hộ chiếu Số</span><span class="tab">3️⃣ Di sản Số</span><span class="tab">4️⃣ Nhật ký</span><span class="tab">5️⃣ Cài đặt</span></div>
+      <div class="grid g-12">
+        <div class="card">
+          <h4>Nhập dữ liệu để AI nhận ra bạn</h4>
+          <div class="grid g2" style="gap:12px">
+            <div><label>Ngày sinh</label><div class="input">1985-05-15</div></div>
+            <div><label>Google / Apple / Facebook</label><div class="input">hahuuhung1985@gmail.com</div></div>
+          </div>
+          <label>Kể tên vài người thân</label><div class="input">Vợ Trần Thị C, Con trai Hà Minh Khôi</div>
+          <label>Cá tính hiện tại</label>
+          <div class="chips"><span class="chip on">Thích công nghệ</span><span class="chip on">Logic & Lý trí</span><span class="chip on">Dậy sớm</span><span class="chip">Hướng nội</span><span class="chip">Cầu toàn</span></div>
+          <label>Một mật khẩu theo thói quen <span class="hint">(chỉ học cấu trúc)</span></label><div class="input">••••••••••••••••</div>
+          <label>Điều gì làm bạn thấy bình yên nhất?</label><div class="input area">Sự bình yên với tôi là viết code AI ban đêm và uống trà cùng gia đình.</div>
+          <button class="btn primary">🔍 Phân tích & Xác minh Chủ nhân</button>
+        </div>
+        <div class="card">
+          <div class="banner green">🎉 <b>XÁC NHẬN CHỦ NHÂN</b> — tiến hóa lên <b>Gen #18</b></div>
+          <div class="score" style="margin-top:14px"><b>86.4%</b><span class="hint">Điểm tin cậy</span></div>
+          <div class="threshold"><i style="left:86%"></i><span style="left:62%">ngưỡng 62%</span></div>
+          <svg viewBox="0 0 300 230" width="100%" style="max-height:230px;margin-top:16px" role="img" aria-label="Radar 5 trụ cột">
+            <g transform="translate(150,118)" fill="none" stroke="#E2E8F0">
+              <polygon points="0,-90 85.6,-27.8 52.9,72.8 -52.9,72.8 -85.6,-27.8"/>
+              <polygon points="0,-60 57,-18.5 35.3,48.5 -35.3,48.5 -57,-18.5"/>
+              <polygon points="0,-30 28.5,-9.3 17.6,24.3 -17.6,24.3 -28.5,-9.3"/>
+              <polygon points="0,-90 85.6,-27.8 52.9,72.8 -52.9,72.8 -85.6,-27.8" fill="rgba(5,150,105,.15)" stroke="#059669" stroke-width="2"/>
+              <polygon points="0,-72 77,-25 41,56.8 -49,67.6 -64,-20.8" fill="rgba(37,99,235,.22)" stroke="#2563EB" stroke-width="2"/>
+            </g>
+            <g font-size="10" fill="#64748B" text-anchor="middle">
+              <text x="150" y="20">Định danh OAuth</text><text x="258" y="88">Gia đình</text><text x="220" y="212">Mật khẩu</text>
+              <text x="80" y="212">Văn phong</text><text x="40" y="88">Thiết bị</text>
+            </g>
+          </svg>
+          <div class="legend"><span><i style="background:#059669"></i>Chữ ký gốc (EMA)</span><span><i style="background:#2563EB"></i>Phiên hiện tại</span></div>
+          <div style="margin-top:14px">
+            <div class="pillar">Định danh OAuth <div class="bar"><i style="width:80%;background:var(--blue)"></i></div><em>80%</em></div>
+            <div class="pillar">Gia đình & Ngày sinh <div class="bar"><i style="width:100%;background:var(--blue)"></i></div><em>100%</em></div>
+            <div class="pillar">Văn phong ngôn ngữ <div class="bar"><i style="width:71%;background:var(--blue)"></i></div><em>71%</em></div>
+            <div class="pillar">Thói quen mật khẩu <div class="bar"><i style="width:92%;background:var(--blue)"></i></div><em>92%</em></div>
+            <div class="pillar">Thiết bị <div class="bar"><i style="width:100%;background:var(--blue)"></i></div><em>100%</em></div>
+          </div>
+          <label style="margin-top:14px">Lịch sử điểm tin cậy (50 phiên gần nhất)</label>
+          <svg viewBox="0 0 300 60" width="100%" height="60" role="img" aria-label="Lịch sử điểm tin cậy">
+            <line x1="0" y1="25" x2="300" y2="25" stroke="#CBD5E1" stroke-dasharray="4 4"/>
+            <polyline fill="none" stroke="#2563EB" stroke-width="2" points="0,14 30,12 60,16 90,10 120,48 150,13 180,11 210,15 240,9 270,12 300,8"/>
+            <circle cx="120" cy="48" r="4" fill="#DC2626"/>
+          </svg>
+          <p class="hint" style="margin:0">Chấm đỏ: phiên bị từ chối. Đường đứt: ngưỡng 62%.</p>
+        </div>
+      </div>
+      <div class="note">Khi chưa có hồ sơ, khu vực tab được thay bằng form <b>Khởi tạo hồ sơ Chủ nhân</b> (giống V2 Tab 1). Khi còn chờ migrate V2: banner xanh "Xác minh lần đầu để hoàn tất nâng cấp".</div>
+    </main>
+  </div>
+
+  <!-- ================================================================== -->
+  <div class="screen-label"><span class="tag">C</span><h3>Tab 3 — Di sản Số (phía Chủ nhân)</h3><p>Trạng thái đồng hồ + niêm phong</p></div>
+  <div class="frame" style="padding:24px">
+    <div class="banner amber" style="margin-bottom:16px">📦 <b>Di sản từ V2 cần niêm phong lại</b> — danh mục tài sản và lời nhắn đã được điền sẵn. Cho tới khi niêm phong lại, người thừa kế chưa thể tiếp quản.</div>
+    <div class="grid g2">
+      <div class="card">
+        <h4>⏳ Đồng hồ Dead Man's Switch</h4>
+        <div class="grid g3" style="margin:10px 0">
+          <div class="metric">Vắng mặt<b>18 ngày</b></div><div class="metric">Ngưỡng<b>730 ngày</b></div><div class="metric">Còn lại<b>712 ngày</b></div>
+        </div>
+        <div class="bar" style="height:12px"><i style="width:2.5%;background:var(--green)"></i></div>
+        <p class="hint">Mốc 90% (657 ngày) chuyển sang <span class="pill amber">Cảnh báo</span>; ≥ 730 ngày <span class="pill red">Mở cổng tiếp quản</span>.</p>
+        <table style="margin-top:6px">
+          <tr><th>Người thừa kế</th><td>Hà Minh Khôi</td></tr>
+          <tr><th>Tài sản niêm phong</th><td>3 mục (đã mã hóa bằng mật ước)</td></tr>
+          <tr><th>Lớp sinh trắc</th><td><span class="pill green">SFace · bảo đảm cao</span></td></tr>
+          <tr><th>Trạng thái</th><td><span class="pill blue">Chủ nhân đang hoạt động</span></td></tr>
+        </table>
+        <button class="btn danger">Hủy niêm phong Di sản</button>
+      </div>
+      <div class="card locked">
+        <h4>✍️ Niêm phong / cập nhật Di sản</h4>
+        <div class="grid g2" style="gap:12px">
+          <div><label>Họ tên người thừa kế</label><div class="input">Hà Minh Khôi</div></div>
+          <div><label>Email người thừa kế</label><div class="input">khoi.ha@gmail.com</div></div>
+        </div>
+        <label>Mật ước gia đình (≥ 10 ký tự)</label><div class="input">••••••••••••••••••</div>
+        <label>Ảnh người thừa kế (1–3 ảnh, mỗi ảnh đúng 1 khuôn mặt)</label><div class="drop">📸 Kéo thả ảnh JPG/PNG · không lưu ảnh, chỉ lưu embedding 128 chiều</div>
+        <label>Danh mục tài sản (mỗi dòng 1 mục)</label><div class="input area">- Bản quyền mã nguồn Evolving Soul AI…</div>
+        <label>Lời nhắn cho người thân</label><div class="input area">Con hãy tiếp tục phát triển dự án AI này…</div>
+        <button class="btn amber" disabled>🔒 Niêm phong Di sản Số</button>
+      </div>
+    </div>
+    <div class="note">Lớp mờ "🔒 Xác minh Chủ nhân…" chỉ hiện khi phiên chưa xác minh hoặc đã quá 15 phút.</div>
+  </div>
+
+  <!-- ================================================================== -->
+  <div class="screen-label"><span class="tag">D</span><h3>Tab 2 · 4 · 5 — Hộ chiếu, Nhật ký, Cài đặt</h3></div>
+  <div class="frame" style="padding:24px">
+    <div class="grid g-12">
+      <div class="passport">
+        <h3 style="color:#065F46;margin:0">🏛️ CHỨNG NHẬN DANH TÍNH SỐ & AI ĐỒNG HÀNH</h3>
+        <div class="hint" style="color:#047857;font-weight:600">Evolving Digital Soul Passport · <span class="pill green">GEN #18</span></div>
+        <p style="margin:12px 0 4px"><b>Chủ nhân:</b> HÀ HỮU HƯNG (1985)</p>
+        <p style="margin:4px 0"><b>Public Soul ID:</b> <code style="color:#059669">SOUL-7F3A91C2D4E8B601</code></p>
+        <p style="margin:4px 0"><b>Cá tính cốt lõi:</b> <i>Thích công nghệ, Logic & Lý trí, Dậy sớm</i></p>
+        <p class="hint">Soul ID dẫn xuất một chiều (SHA-256) từ mô hình đã băm và thời điểm tạo lập — không lộ dữ liệu gốc.</p>
+        <details style="margin-top:8px"><summary style="font-weight:600;color:var(--title)">🔐 Cấu trúc dữ liệu đã che</summary><code style="display:block;white-space:pre;margin-top:6px">model.family: &lt;list: 4 phần tử&gt;
+model.dob: &lt;str: 64 ký tự, sha256 3be1…&gt;</code></details>
+      </div>
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center"><h4 style="margin:0">📜 Nhật ký kiểm toán</h4><span class="pill green">✓ Chuỗi băm toàn vẹn · 42 sự kiện</span></div>
+        <table style="margin-top:10px">
+          <tr><th>Thời gian</th><th>Sự kiện</th><th>Kết quả</th></tr>
+          <tr><td>15/10 19:40</td><td>owner_verification</td><td><span class="pill green">ok</span> 0.864</td></tr>
+          <tr><td>15/10 19:38</td><td>legacy_claim</td><td><span class="pill red">denied</span></td></tr>
+          <tr><td>15/10 19:31</td><td>legacy_sealed</td><td><span class="pill green">ok</span> 730 ngày</td></tr>
+          <tr><td>15/10 19:30</td><td>vault_unlock</td><td><span class="pill green">ok</span></td></tr>
+        </table>
+        <div class="banner red" style="margin-top:10px">Ví dụ khi bị sửa: ⚠️ Chuỗi băm đứt tại dòng 12 — nhật ký đã bị chỉnh sửa.</div>
+      </div>
+    </div>
+    <div class="grid g2" style="margin-top:16px">
+      <div class="card"><h4>🔑 Đổi passphrase</h4><label>Passphrase mới</label><div class="input">••••••••••</div><label>Nhập lại</label><div class="input">••••••••••</div><button class="btn primary">Đổi passphrase</button></div>
+      <div class="card" style="border-color:#FECACA"><h4 style="color:var(--red)">⚠️ Vùng nguy hiểm</h4><p>Khởi tạo lại hồ sơ Chủ nhân sẽ xóa lịch sử tiến hóa và <b>hủy Di sản Số</b> đã niêm phong.</p><label><input type="checkbox"> Tôi là Chủ nhân và hiểu hậu quả</label><button class="btn danger">Khởi tạo lại hồ sơ</button></div>
+    </div>
+  </div>
+
+  <!-- ================================================================== -->
+  <div class="screen-label"><span class="tag">E</span><h3>Cổng Người thừa kế</h3><p>Trước & sau mốc 730 ngày</p></div>
+  <div class="frame" style="padding:24px">
+    <div class="grid g2">
+      <div class="card">
+        <h4>🕊️ Xác thực người thừa kế</h4>
+        <div class="banner amber" style="margin:8px 0">🧪 DEMO · Số ngày Chủ nhân offline: <b>735</b> <input type="range" min="0" max="1000" value="735" style="width:100%"></div>
+        <div class="grid g2" style="gap:12px">
+          <div><label>Họ tên của bạn</label><div class="input">Hà Minh Khôi</div></div>
+          <div><label>Email</label><div class="input">khoi.ha@gmail.com</div></div>
+        </div>
+        <label>Ngày sinh của Chủ nhân</label><div class="input">1985-05-15</div>
+        <label>Các thành viên khác trong gia đình</label><div class="input">Bố Hà Văn A, Mẹ Nguyễn Thị B…</div>
+        <label>Mật ước gia đình</label><div class="input">••••••••••••••••</div>
+        <label>Quét khuôn mặt</label>
+        <div class="chips"><span class="chip on">📷 Camera trực tiếp</span><span class="chip">⬆️ Tải ảnh</span></div>
+        <div class="drop" style="height:90px;display:flex;align-items:center;justify-content:center">[ khung camera ]</div>
+        <button class="btn amber">🗝️ Xác thực & Mở khóa Di sản</button>
+        <button class="btn ghost">← Quay lại màn hình khóa</button>
+      </div>
+      <div>
+        <div class="grid g2" style="margin-bottom:12px">
+          <div class="card metric">Tri thức gia đình<b>100%</b><span class="hint">Yêu cầu ≥ 70% (SFace)</span></div>
+          <div class="card metric">Sinh trắc SFace<b>0.91</b><span class="hint">Ngưỡng cosine 0.363 · <span class="pill green">bảo đảm cao</span></span></div>
+        </div>
+        <div class="banner blue" style="margin-bottom:12px">🛡️ <b>Trường hợp &lt; 730 ngày:</b> Xác thực đúng nhưng Chủ nhân vẫn trong chu kỳ hoạt động (còn 612 ngày). Tài sản tiếp tục được khóa — bạn ở chế độ bạn đồng hành.</div>
+        <div class="legacy-box">
+          <h4 style="color:#92400E;margin-top:0">📜 CHỨNG THƯ CHUYỂN GIAO BẢN QUYỀN & DI SẢN SỐ</h4>
+          <p><b>Chủ nhân sáng lập:</b> HÀ HỮU HƯNG (1985) <i>(Kiến trúc: HÀ HỮU HƯNG 1985 — KỸ SƯ AI THẾ HỆ 8X)</i></p>
+          <p><b>Người thừa kế:</b> Hà Minh Khôi (khoi.ha@gmail.com)</p>
+          <p><b>Di thư:</b> <i>"Con hãy tiếp tục phát triển dự án AI này và giữ vững đạo đức nghề nghiệp."</i></p>
+          <hr style="border:0;border-top:1px solid #FDE68A">
+          <p style="color:#B45309;font-weight:700">🔓 Danh mục bản quyền & tài sản số:</p>
+          <ul><li><code>Bản quyền mã nguồn Evolving Soul AI…</code></li><li><code>Kho lưu trữ sáng tác cá nhân…</code></li></ul>
+          <p class="hint">Nếu Chủ nhân quay lại và xác minh thành công, quyền tiếp quản tự động bị thu hồi.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="hint" style="text-align:center;margin-top:40px">Mockup V3 · Tác giả sáng lập: HÀ HỮU HƯNG (1985) — KỸ SƯ AI THẾ HỆ 8X</p>
+</div>
+</body>
+</html>

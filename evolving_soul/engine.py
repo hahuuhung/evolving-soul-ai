@@ -13,6 +13,7 @@ Tác giả sáng lập: HÀ HỮU HƯNG (1985) — KỸ SƯ AI THẾ HỆ 8X
 from __future__ import annotations
 
 import copy
+import hashlib
 import logging
 import os
 import time
@@ -126,6 +127,21 @@ class EvolvingSoulEngine:
         self._owner_verified_at = None
         logger.info("vault_locked")
 
+    def change_passphrase(self, new_passphrase: str) -> None:
+        """Đổi passphrase (chỉ bọc lại khóa chủ). Yêu cầu Chủ nhân đã xác minh trong phiên."""
+        session = self._require_unlocked()
+        self.require_owner_verified()
+        self.vault.change_passphrase(session, new_passphrase)
+        self.audit.append("passphrase_changed", "ok")
+
+    @property
+    def soul_id(self) -> str | None:
+        """Mã định danh công khai ổn định, dẫn xuất một chiều từ hồ sơ đã băm (không lộ dữ liệu gốc)."""
+        if not self._profile or "model" not in self._profile:
+            return None
+        material = f"{self._profile['model'].get('dob')}|{self._profile.get('created_at')}"
+        return "SOUL-" + hashlib.sha256(material.encode("utf-8")).hexdigest()[:16].upper()
+
     def _require_unlocked(self) -> VaultSession:
         if not self.is_unlocked:
             raise VaultLockedError("Két sắt đang khóa — cần passphrase của Chủ nhân.")
@@ -150,6 +166,17 @@ class EvolvingSoulEngine:
         if self._owner_verified_at is None or not self.is_unlocked:
             return False
         return (self._clock() - self._owner_verified_at) <= self.settings.owner_session_ttl_seconds
+
+    @property
+    def owner_session_remaining_seconds(self) -> float:
+        if not self.owner_verified:
+            return 0.0
+        return max(0.0, self.settings.owner_session_ttl_seconds - (self._clock() - self._owner_verified_at))
+
+    @property
+    def legacy_sealed(self) -> bool:
+        """Đã có lớp bọc khóa bằng mật ước (cổng người thừa kế dùng được) — không cần mở két."""
+        return self.vault.has_legacy_wrap()
 
     def require_owner_verified(self) -> None:
         if not self.owner_verified:
