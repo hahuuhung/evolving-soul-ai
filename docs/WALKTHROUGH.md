@@ -84,3 +84,20 @@ $env:EVOLVING_SOUL_DEMO="1"; streamlit run app_ui.py
 Người nhà là đối thủ mạnh nhất; vì vậy ở V3 xác minh hành vi là **lớp thứ hai sau passphrase**: không mở được két thì không có gì để xác minh. Không nên đặt `EVOLVING_SOUL_PASSPHRASE` trên máy dùng chung.
 
 **Kiểm thử**: `tests/test_features.py` (12, gồm test hiệu chỉnh FAR/FRR với seed riêng), `tests/test_engine_owner.py` (9). Tổng 37 test V3.
+
+---
+
+## Giai đoạn 3 — Sinh trắc học YuNet + SFace
+
+**Vấn đề của V2**: "sinh trắc học" chỉ là histogram xám 64 bin — mọi ảnh có độ sáng tương tự đều khớp; khi chưa đăng ký ảnh thì `bio_score = knowledge_score`.
+
+**V3** (`evolving_soul/biometrics.py`)
+- `cv2.FaceDetectorYN` (YuNet, 232 KB) phát hiện & căn chỉnh khuôn mặt; `cv2.FaceRecognizerSF` (SFace, 38.7 MB) sinh embedding 128 chiều. Có sẵn trong `opencv-python` ≥ 4.8 — không cần thêm thư viện.
+- Model tải từ opencv_zoo vào `models/` (đã gitignore) ở lần dùng đầu; **SHA-256 được ghim cố định** trong mã, file sai checksum bị từ chối. Môi trường offline: chép 2 file `.onnx` vào một thư mục và đặt `EVOLVING_SOUL_MODEL_DIR`.
+- Đăng ký: 1–3 ảnh, mỗi ảnh phải có **đúng một** khuôn mặt; lưu trung bình embedding đã chuẩn hóa — không lưu ảnh.
+- So khớp: cosine SFace, ngưỡng 0.363 (khuyến nghị của OpenCV). Thử nghiệm: cùng người (lật + đổi sáng) ≈ 0.90, khác người ≈ 0.13.
+- Fallback histogram (khi không có model) được gắn `assurance="low"`; Giai đoạn 4 sẽ bắt buộc điểm tri thức cao hơn cho mức này.
+
+**Ghi chú ghim checksum**: SHA-256 được lấy từ bản tải opencv_zoo ngày 2026-10-15 (trust-on-first-use). Nếu opencv_zoo cập nhật file, cần cập nhật hằng số `DETECTOR` / `RECOGNIZER`.
+
+**Kiểm thử**: `tests/test_biometrics.py` — 4 test luôn chạy (checksum, fallback, ảnh hỏng, mẫu SFace khi thiếu model) + 3 test `@pytest.mark.models` dùng ảnh mẫu `lena.jpg` / `messi5.jpg` của OpenCV (tải về cache, ghim SHA-256, tự bỏ qua khi offline).
