@@ -1,0 +1,19 @@
+# Két sắt dữ liệu cá nhân & khóa mã hóa (Tuyệt đối không đẩy lên Git)
+vault/
+vault_e2e_test/
+*.enc
+*.pkl
+trainer/
+owner_model.yml
+
+# Môi trường Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+.pytest_cache/
+
+# OS files
+.DS_Store
+Thumbs.db
