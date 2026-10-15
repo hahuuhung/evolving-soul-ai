@@ -25,6 +25,13 @@ class Action:
     def __init__(self) -> None:
         self.valves = self.Valves()
 
+    @staticmethod
+    def _token(user: dict[str, Any] | None) -> str:
+        valves = (user or {}).get("valves") or {}
+        if isinstance(valves, dict):
+            return str(valves.get("pairing_token", ""))
+        return str(getattr(valves, "pairing_token", ""))
+
     async def action(
         self,
         body: dict[str, Any],
@@ -32,7 +39,7 @@ class Action:
         __event_emitter__: Any = None,
     ) -> dict[str, Any]:
         user_id = str((__user__ or {}).get("id", ""))
-        token = getattr((__user__ or {}).get("valves"), "pairing_token", "")
+        token = self._token(__user__)
         if not token or not user_id:
             return {"error": "Pair Evolving Soul for this Open WebUI user first."}
         try:

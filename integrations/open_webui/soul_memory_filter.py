@@ -35,6 +35,13 @@ class Filter:
     def _user_id(user: dict[str, Any] | None) -> str:
         return str((user or {}).get("id", ""))
 
+    @staticmethod
+    def _token(user: dict[str, Any] | None) -> str:
+        valves = (user or {}).get("valves") or {}
+        if isinstance(valves, dict):
+            return str(valves.get("pairing_token", ""))
+        return str(getattr(valves, "pairing_token", ""))
+
     async def _emit(self, emitter: Any, message: str, done: bool = True) -> None:
         if emitter:
             await emitter({"type": "status", "data": {"description": message, "done": done}})
@@ -50,7 +57,7 @@ class Filter:
         if any(MARKER in str(item.get("content", "")) for item in messages):
             return body
         user_id = self._user_id(__user__)
-        token = getattr((__user__ or {}).get("valves"), "pairing_token", "")
+        token = self._token(__user__)
         query = next(
             (
                 str(item.get("content", ""))
@@ -113,7 +120,7 @@ class Filter:
             "",
         )
         user_id = self._user_id(__user__)
-        token = getattr((__user__ or {}).get("valves"), "pairing_token", "")
+        token = self._token(__user__)
         if not token or not user_id or not content:
             return body
         try:

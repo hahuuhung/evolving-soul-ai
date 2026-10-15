@@ -67,10 +67,7 @@ def create_app(
 
     @app.get("/", response_class=HTMLResponse)
     def local_review() -> str:
-        return (
-            "<main><h1>Evolving Soul AI</h1><p>Local review service is running.</p>"
-            "<p>Use a passkey-authenticated client to approve or reject proposals.</p></main>"
-        )
+        return _CONTROL_PLANE_HTML
 
     @app.post("/v1/bootstrap/register/options")
     def bootstrap_options(body: dict[str, Any]) -> dict[str, Any]:
@@ -231,3 +228,34 @@ def create_app(
             raise problem(exc) from exc
 
     return app
+
+
+_CONTROL_PLANE_HTML = r"""<!doctype html>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<title>Evolving Soul AI — local review</title>
+<style>
+body{font:16px system-ui;max-width:760px;margin:3rem auto;padding:0 1rem;color:#17202a}
+button,input{font:inherit;padding:.6rem;margin:.25rem}.card{border:1px solid #ccd;padding:1rem;margin:1rem 0}
+.muted{color:#667}pre{white-space:pre-wrap}.danger{color:#9b1c1c}
+</style>
+<h1>Evolving Soul AI</h1>
+<p class="muted">Local-only control plane. Sensitive actions require a fresh passkey.</p>
+<section id="bootstrap"><h2>First passkey</h2><input id="code" placeholder="terminal bootstrap code">
+<input id="name" value="Owner" aria-label="Owner label"><button onclick="register()">Register</button></section>
+<section><h2>Pending memory</h2><button onclick="loadQueue()">Authenticate and load</button>
+<div id="queue"></div></section><pre id="status"></pre>
+<script>
+const status = document.querySelector('#status');
+const b64d=s=>Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')+'==='.slice((s.length+3)%4)),c=>c.charCodeAt(0));
+const b64e=b=>btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+function creation(o){o.challenge=b64d(o.challenge);o.user.id=b64d(o.user.id);(o.excludeCredentials||[]).forEach(x=>x.id=b64d(x.id));return o}
+function request(o){o.challenge=b64d(o.challenge);(o.allowCredentials||[]).forEach(x=>x.id=b64d(x.id));return o}
+function credential(c){return {id:c.id,rawId:b64e(c.rawId),type:c.type,authenticatorAttachment:c.authenticatorAttachment,
+clientExtensionResults:c.getClientExtensionResults(),response:Object.fromEntries(Object.entries(c.response).filter(([,v])=>v instanceof ArrayBuffer).map(([k,v])=>[k,b64e(v)]))}}
+async function api(path,body,token){let r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},body:JSON.stringify(body)});if(!r.ok)throw Error(await r.text());return r.status===204?{}:r.json()}
+async function register(){try{let x=await api('/v1/bootstrap/register/options',{code:code.value,owner_name:name.value});let c=await navigator.credentials.create({publicKey:creation(x.options)});await api('/v1/bootstrap/register/complete',{ceremony_id:x.ceremony_id,credential:credential(c)});status.textContent='Passkey registered.';bootstrap.hidden=true}catch(e){status.textContent=e}}
+async function stepup(){let x=await api('/v1/auth/options',{});let c=await navigator.credentials.get({publicKey:request(x.options)});return (await api('/v1/auth/complete',{ceremony_id:x.ceremony_id,credential:credential(c)})).step_up_token}
+async function loadQueue(){try{let token=await stepup();let r=await fetch('/v1/proposals',{headers:{Authorization:'Bearer '+token}});if(!r.ok)throw Error(await r.text());let rows=await r.json();queue.replaceChildren(...rows.map(card));status.textContent=rows.length?'':'No pending proposals.'}catch(e){status.textContent=e}}
+function card(p){let d=document.createElement('div');d.className='card';let t=document.createElement('textarea');t.value=p.content;t.rows=4;t.style.width='95%';let a=document.createElement('button');a.textContent='Approve';a.onclick=()=>decide(p.proposal_id,'approve',t.value);let r=document.createElement('button');r.textContent='Reject and erase';r.className='danger';r.onclick=()=>decide(p.proposal_id,'reject');d.append(t,a,r);return d}
+async function decide(id,action,content){try{let token=await stepup();await api('/v1/proposals/'+encodeURIComponent(id)+'/'+action,{content},token);await loadQueue()}catch(e){status.textContent=e}}
+</script>"""
