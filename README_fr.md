@@ -24,6 +24,8 @@
 
 Ce système élimine toute dépendance à la biométrie physique quotidienne (caméras faciales, scanners rétiniens ou d'empreintes digitales), protégeant ainsi l'utilisateur contre les fuites de données biométriques et le Deepfake. Il intègre de plus un **Protocole d'Inactivité de 2 Ans (Dead Man's Switch de 730 jours)** avec secours biométrique conditionnel pour léguer en toute sécurité les œuvres de l'esprit, dépôts de code et actifs numériques aux ayants droit.
 
+> **⚠️ Mise à jour V3 :** la suite de ce document décrit l'architecture V2. En V3, la clé maîtresse est enveloppée par une phrase secrète (Scrypt), les données sensibles ne sont stockées qu'en HMAC-SHA256, le score à 5 piliers utilise un seuil de 0,62, la reconnaissance faciale de l'héritier repose sur OpenCV YuNet + SFace, et des passerelles CLI / MCP / REST sont fournies. Pour l'installation et la sécurité à jour, voir [README.md (English)](README.md#-english) et [docs/WALKTHROUGH.md](docs/WALKTHROUGH.md).
+
 ---
 
 ## 🏗️ Architecture du Système (Workflow Architecture)

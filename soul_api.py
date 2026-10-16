@@ -1,340 +1,244 @@
 """
-Cổng Giao Tiếp REST API Gateway (FastAPI) — Evolving Soul AI
+Cổng Giao Tiếp REST API Gateway (FastAPI) — Evolving Soul AI V3
 Tác giả sáng lập: HÀ HỮU HƯNG (1985) — KỸ SƯ AI THẾ HỆ 8X
 Bản quyền: Giấy phép Mã nguồn Mở bắt buộc ghi nhận nguồn gốc (Attribution Required)
 
-Cung cấp các API RESTful bảo mật Zero-Knowledge, hỗ trợ Swagger UI (/docs) và ReDoc (/redoc)
-để các hệ thống web bên thứ ba, ứng dụng di động, microservices và webhook tích hợp dễ dàng.
+Swagger UI (/docs), ReDoc (/redoc). Cấu hình qua biến môi trường:
+  EVOLVING_SOUL_PASSPHRASE  passphrase mở két (bắt buộc cho các endpoint của Chủ nhân)
+  SOUL_API_KEY              khóa cho header X-API-Key (bắt buộc; không có giá trị mặc định)
+  SOUL_API_CORS_ORIGINS     danh sách origin được phép, phân tách bởi dấu phẩy (mặc định: không cho phép)
+Endpoint công khai: /api/v1/health và /api/v1/legacy/claim (bảo vệ bởi mật ước + khóa tạm chống dò).
 """
 
 from __future__ import annotations
 
+import hmac
 import logging
 import os
-import sys
 import time
-from typing import Any, List, Optional
+from typing import Any, Callable, List, Optional
 
-if sys.platform == "win32":
-    if hasattr(sys.stdout, "reconfigure"):
-        sys.stdout.reconfigure(encoding="utf-8")
-    if hasattr(sys.stderr, "reconfigure"):
-        sys.stderr.reconfigure(encoding="utf-8")
-
-from fastapi import Depends, FastAPI, Header, HTTPException, Security, status
+from fastapi import Depends, FastAPI, HTTPException, Security, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security.api_key import APIKeyHeader
 from pydantic import BaseModel, Field
 
-from core_engine import EvolvingOwnerAI_V2
-
-# Structured logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] [SoulAPI] %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S"
+from evolving_soul import (
+    EvolvingSoulEngine,
+    EvolvingSoulError,
+    LockedOutError,
+    OwnerNotVerifiedError,
+    ProfileExistsError,
+    VaultLockedError,
+    VaultNotFoundError,
+    __version__,
+    service,
 )
-logger = logging.getLogger("soul_api")
+from evolving_soul.config import AUTHOR_ATTRIBUTION
+from evolving_soul.logging_setup import configure_logging
 
-# Cấu hình API Key
+configure_logging()
+logger = logging.getLogger("evolving_soul.api")
+
 API_KEY_NAME = "X-API-Key"
-DEFAULT_API_KEY = os.environ.get("SOUL_API_KEY", "soul_secret_api_key_2026")
 api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
 
 
 def verify_api_key(api_key: Optional[str] = Security(api_key_header)) -> str:
-    """Xác thực Header X-API-Key."""
-    expected_key = os.environ.get("SOUL_API_KEY", DEFAULT_API_KEY)
-    if not api_key or api_key != expected_key:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="API Key không hợp lệ hoặc bị thiếu trong Header 'X-API-Key'."
-        )
+    """Xác thực header X-API-Key (so sánh thời gian hằng định)."""
+    expected = os.environ.get("SOUL_API_KEY", "")
+    if not expected:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                            detail="Máy chủ chưa cấu hình SOUL_API_KEY — endpoint của Chủ nhân bị vô hiệu hóa.")
+    if not api_key or not hmac.compare_digest(api_key, expected):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+                            detail="API Key không hợp lệ hoặc bị thiếu trong header 'X-API-Key'.")
     return api_key
 
 
-def get_engine() -> EvolvingOwnerAI_V2:
-    """Khởi tạo engine dựa trên biến môi trường."""
-    vault_dir = os.environ.get("EVOLVING_SOUL_VAULT_DIR", "vault")
-    secret_key = os.environ.get("EVOLVING_SOUL_PASSPHRASE", "chu_nhan_bi_mat_v2_2026")
-    demo_mode = os.environ.get("EVOLVING_SOUL_DEMO", "") == "1"
-    return EvolvingOwnerAI_V2(secret_key_phrase=secret_key, vault_dir=vault_dir, demo_mode=demo_mode)
+# Ánh xạ lỗi nghiệp vụ -> mã HTTP (thứ tự: lớp cụ thể trước)
+ERROR_STATUS = [
+    (LockedOutError, status.HTTP_429_TOO_MANY_REQUESTS),
+    (VaultNotFoundError, status.HTTP_404_NOT_FOUND),
+    (VaultLockedError, status.HTTP_423_LOCKED),
+    (OwnerNotVerifiedError, status.HTTP_403_FORBIDDEN),
+    (ProfileExistsError, status.HTTP_409_CONFLICT),
+    (PermissionError, status.HTTP_403_FORBIDDEN),
+    (EvolvingSoulError, status.HTTP_400_BAD_REQUEST),
+    (ValueError, status.HTTP_400_BAD_REQUEST),
+]
+
+
+def call(action: Callable[[], Any]) -> Any:
+    try:
+        return action()
+    except tuple(kind for kind, _ in ERROR_STATUS) as exc:
+        code = next(code for kind, code in ERROR_STATUS if isinstance(exc, kind))
+        logger.warning("api_error type=%s status=%d", type(exc).__name__, code)
+        headers = {"Retry-After": str(int(exc.retry_after_seconds) + 1)} if isinstance(exc, LockedOutError) else None
+        raise HTTPException(status_code=code, detail=str(exc), headers=headers) from exc
 
 
 # =========================================================================
-# KHỞI TẠO FASTAPI APP VỚI METADATA ĐẦY ĐỦ
+# KHỞI TẠO FASTAPI APP
 # =========================================================================
 
 app = FastAPI(
     title="Evolving Soul AI — REST API Gateway",
-    description="""
-API Gateway chuẩn quốc tế phục vụ kết nối các hệ thống ngoài và AI Agents với **Evolving Soul AI**.
-- **Tác giả sáng lập**: HÀ HỮU HƯNG (1985) — KỸ SƯ AI THẾ HỆ 8X
-- **Bảo mật**: Zero-Knowledge SHA-256 một chiều, mã hóa két sắt Fernet AES-128-CBC.
-- **Tiến hóa thời gian**: Thuật toán EMA tự thích nghi liên tục $S_t = 0.85 \\cdot S_{t-1} + 0.15 \\cdot X_t$.
-- **Di sản số**: Giao thức Dead Man's Switch 2 năm (730 ngày) chuyển giao an toàn cho người thừa kế.
+    description=f"""
+API Gateway kết nối hệ thống ngoài và AI Agents với **Evolving Soul AI V3**.
+- **{AUTHOR_ATTRIBUTION}**
+- **Bảo mật**: két sắt Fernet, khóa chủ bọc bằng Scrypt; bí mật băm HMAC-SHA256; chống dò bằng khóa tạm tăng dần.
+- **Tiến hóa**: EMA $S_t = 0.85 \\cdot S_{{t-1}} + 0.15 \\cdot X_t$ trên các đặc trưng hành vi.
+- **Di sản số**: Dead Man's Switch (mặc định 730 ngày), xác thực kép tri thức + sinh trắc.
     """,
-    version="3.2.005",
-    contact={
-        "name": "HÀ HỮU HƯNG (1985) — KỸ SƯ AI THẾ HỆ 8X",
-        "url": "https://github.com/hahuuhung/evolving-soul-ai"
-    }
+    version=__version__,
+    contact={"name": "HÀ HỮU HƯNG (1985) — KỸ SƯ AI THẾ HỆ 8X"},
 )
 
-# CORS Middleware cho phép mọi client (web, mobile, bot) kết nối
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+_origins = [o.strip() for o in os.environ.get("SOUL_API_CORS_ORIGINS", "").split(",") if o.strip()]
+if _origins:
+    app.add_middleware(CORSMiddleware, allow_origins=_origins, allow_credentials=False,
+                       allow_methods=["GET", "POST"], allow_headers=[API_KEY_NAME, "Content-Type"])
 
 
 # =========================================================================
-# PYDANTIC SCHEMAS (DATA CONTRACTS)
+# PYDANTIC SCHEMAS
 # =========================================================================
 
 class IdentityPayload(BaseModel):
     google_id: str = Field(default="", description="Google OAuth ID hoặc email")
     apple_id: str = Field(default="", description="Apple Sign-in ID")
     facebook_id: str = Field(default="", description="Facebook ID")
-    dob: str = Field(default="", description="Ngày sinh định dạng YYYY-MM-DD")
-    family: str = Field(default="", description="Tên các thành viên gia đình (Family Lore)")
-    traits: List[str] = Field(default_factory=list, description="Danh sách các nét cá tính cốt lõi")
-    password_sample: str = Field(default="", description="Mẫu mật khẩu (chỉ trích xuất thói quen cấu trúc, không lưu trữ)")
-    security_answer: str = Field(default="", description="Câu trả lời mở để phân tích văn phong Stylometry")
+    dob: str = Field(default="", description="Ngày sinh YYYY-MM-DD")
+    family: str = Field(default="", description="Tên các thành viên gia đình, phân tách bởi dấu phẩy")
+    traits: List[str] = Field(default_factory=list, description="Các nét cá tính cốt lõi")
+    password_sample: str = Field(default="", description="Mẫu mật khẩu (chỉ học cấu trúc, không lưu)")
+    security_answer: str = Field(default="", description="Câu trả lời mở để phân tích văn phong")
+
+    def to_identity(self, owner_name: Optional[str] = None) -> dict:
+        return service.identity(google=self.google_id, apple=self.apple_id, facebook=self.facebook_id, dob=self.dob,
+                                family=self.family, traits=self.traits, password=self.password_sample,
+                                answer=self.security_answer, owner_name=owner_name)
 
 
 class RegisterPayload(IdentityPayload):
-    owner_name: str = Field(default="HÀ HỮU HƯNG (1985)", description="Họ tên đầy đủ của Chủ nhân")
-    force_override: bool = Field(default=False, description="Ghi đè nếu hồ sơ đã tồn tại")
+    owner_name: str = Field(default="HÀ HỮU HƯNG (1985)", description="Họ tên Chủ nhân")
+    force_override: bool = Field(default=False, description="Ghi đè hồ sơ đã có (cần current_identity)")
+    current_identity: Optional[IdentityPayload] = Field(default=None, description="Định danh hiện tại để xác minh khi ghi đè")
 
 
 class LegacySetupPayload(BaseModel):
+    owner_identity: IdentityPayload = Field(description="Định danh Chủ nhân — được xác minh ngay trong yêu cầu này")
     heir_name: str = Field(description="Họ tên người thừa kế")
     heir_email: str = Field(description="Email người thừa kế")
-    family_secret: str = Field(description="Mật ước / Tín vật gia đình")
-    assets_list: List[str] = Field(default_factory=list, description="Danh mục tài sản số thừa kế")
-    legacy_message: str = Field(default="", description="Thông điệp gửi gắm cho thế hệ sau")
-    inactivity_days: int = Field(default=730, description="Ngưỡng vắng mặt (mặc định: 730 ngày / 2 năm)")
+    family_secret: str = Field(description="Mật ước gia đình (≥ 10 ký tự)")
+    assets_list: List[str] = Field(default_factory=list, description="Danh mục tài sản số")
+    legacy_message: str = Field(default="", description="Lời nhắn cho người thừa kế")
+    inactivity_days: int = Field(default=730, description="Ngưỡng vắng mặt (ngày)")
 
 
 class LegacyClaimPayload(BaseModel):
-    kin_name: str = Field(description="Họ tên người thừa kế yêu cầu nhận di sản")
+    kin_name: str = Field(description="Họ tên người thừa kế")
     kin_email: str = Field(description="Email người thừa kế")
-    owner_dob: str = Field(description="Ngày sinh gốc của chủ nhân để đối chiếu")
-    other_family_members: str = Field(description="Mạng lưới người thân trong gia đình")
-    family_secret: str = Field(description="Mật ước bí mật gia đình")
-    simulated_days_offline: float = Field(default=0.0, description="Số ngày mô phỏng offline (Demo mode)")
+    owner_dob: str = Field(description="Ngày sinh của Chủ nhân")
+    other_family_members: str = Field(description="Các thành viên khác trong gia đình")
+    family_secret: str = Field(description="Mật ước gia đình")
+    simulated_days_offline: float = Field(default=0.0, description="Số ngày mô phỏng offline (chỉ chế độ demo)")
 
 
 # =========================================================================
-# CÁC ENDPOINT RESTFUL
+# ENDPOINTS
 # =========================================================================
 
-@app.get("/api/v1/health", tags=["Hệ Thống"], summary="Kiểm tra trạng thái máy chủ & két sắt")
+@app.get("/api/v1/health", tags=["Hệ Thống"], summary="Trạng thái máy chủ & két sắt")
 def get_health() -> dict[str, Any]:
-    """Kiểm tra máy chủ đang hoạt động và tính toàn vẹn của két sắt."""
-    engine = get_engine()
-    profile = engine.load_profile()
+    engine = EvolvingSoulEngine()
     return {
         "status": "HEALTHY",
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
-        "vault_initialized": profile is not None,
+        "vault_initialized": engine.is_initialized,
+        "profile_present": engine.has_profile,
+        "legacy_sealed": engine.legacy_sealed,
         "author": "HÀ HỮU HƯNG (1985) — KỸ SƯ AI THẾ HỆ 8X",
-        "version": "3.2.005"
+        "version": __version__,
     }
 
 
-@app.get("/api/v1/soul/status", tags=["Linh Hồn Số"], summary="Xem hồ sơ và 5 trụ cột radar")
+@app.get("/api/v1/soul/status", tags=["Linh Hồn Số"], summary="Hồ sơ và 5 trụ cột radar")
 def get_soul_status(_: str = Depends(verify_api_key)) -> dict[str, Any]:
-    """Lấy dữ liệu định danh số, thế hệ hiện tại và 5 trụ cột radar của Chủ nhân."""
-    engine = get_engine()
-    profile = engine.load_profile()
-    if not profile:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Két sắt chưa có hồ sơ chủ nhân. Hãy khởi tạo trước."
-        )
-
-    legacy_status = engine.check_inactivity_status()
-    return {
-        "owner_name": profile.get("owner_name"),
-        "generation": profile.get("generation"),
-        "created_at": profile.get("created_at"),
-        "last_updated": profile.get("last_updated"),
-        "radar_metrics": profile.get("radar_baseline", {}),
-        "traits": profile.get("traits_saved", []),
-        "legacy_status": legacy_status,
-        "attribution": profile.get("author_attribution")
-    }
+    summary = call(lambda: service.profile_summary(service.open_engine()))
+    if not summary["is_initialized"]:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Két sắt chưa có hồ sơ Chủ nhân.")
+    return summary
 
 
-@app.post("/api/v1/soul/verify", tags=["Bảo Mật & Xác Thực"], summary="Xác thực danh tính chủ nhân phi sinh trắc học")
-def verify_identity(payload: IdentityPayload) -> dict[str, Any]:
-    """
-    Xác minh danh tính theo chuẩn Zero-Knowledge:
-    Kiểm tra 5 trụ cột đặc trưng, trả về Trust Score và kết luận is_owner.
-    """
-    engine = get_engine()
-    data = {
-        "google": payload.google_id,
-        "apple": payload.apple_id,
-        "facebook": payload.facebook_id,
-        "dob": payload.dob,
-        "family": payload.family,
-        "traits": payload.traits,
-        "password": payload.password_sample,
-        "answer": payload.security_answer
-    }
-    result = engine.verify_and_evolve(data)
-    if not result:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Két sắt chưa được khởi tạo để xác minh."
-        )
-
-    return {
-        "is_owner": result["is_owner"],
-        "trust_score": round(result["trust_score"], 4),
-        "vec_similarity": round(result["vec_sim"], 4),
-        "family_match": round(result["fam_sim"], 4),
-        "stylometry_match": round(result["word_sim"], 4),
-        "current_generation": result["generation"],
-        "owner_name": result["owner_name"]
-    }
+@app.post("/api/v1/soul/verify", tags=["Bảo Mật & Xác Thực"], summary="Xác minh Chủ nhân (tiến hóa nếu đạt)")
+def verify_identity(payload: IdentityPayload, _: str = Depends(verify_api_key)) -> dict[str, Any]:
+    """Xác minh 5 trụ cột. Nếu đạt, hồ sơ tiến hóa lên Gen #N+1. Sai 5 lần liên tiếp → 429."""
+    return call(lambda: service.verify_summary(service.open_engine().verify_owner(payload.to_identity())))
 
 
-@app.post("/api/v1/soul/evolve", tags=["Linh Hồn Số"], summary="Kích hoạt chu kỳ học liên tục EMA")
-def evolve_soul(payload: IdentityPayload, _: str = Depends(verify_api_key)) -> dict[str, Any]:
-    """
-    Kích hoạt chu kỳ tiến hóa tự thích nghi.
-    Nếu danh tính được xác minh hợp lệ, hồ sơ sẽ chuyển dịch vector và tăng lên Gen #N+1.
-    """
-    engine = get_engine()
-    data = {
-        "google": payload.google_id,
-        "apple": payload.apple_id,
-        "facebook": payload.facebook_id,
-        "dob": payload.dob,
-        "family": payload.family,
-        "traits": payload.traits,
-        "password": payload.password_sample,
-        "answer": payload.security_answer
-    }
-    result = engine.verify_and_evolve(data)
-    if not result:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Két sắt chưa được khởi tạo.")
-
+@app.post("/api/v1/soul/evolve", tags=["Linh Hồn Số"], summary="Chu kỳ học liên tục EMA")
+def evolve_soul(payload: IdentityPayload, api_key: str = Depends(verify_api_key)) -> dict[str, Any]:
+    result = verify_identity(payload, api_key)
     if result["is_owner"]:
-        return {
-            "status": "EVOLVED",
-            "message": f"Chủ nhân {result['owner_name']} đã tiến hóa lên Thế hệ Gen #{result['generation']}!",
-            "new_generation": result["generation"],
-            "trust_score": round(result["trust_score"], 4),
-            "updated_radar": result["curr_radar"]
-        }
-    else:
-        return {
-            "status": "REJECTED",
-            "message": "Điểm tin cậy chưa đạt ngưỡng 72%. Hồ sơ được giữ nguyên.",
-            "is_owner": False,
-            "trust_score": round(result["trust_score"], 4)
-        }
+        return {"status": "EVOLVED", "new_generation": result["current_generation"], "trust_score": result["trust_score"],
+                "updated_radar": result["updated_radar"],
+                "message": f"Chủ nhân {result['owner_name']} đã tiến hóa lên Gen #{result['current_generation']}."}
+    return {"status": "REJECTED", "is_owner": False, "trust_score": result["trust_score"],
+            "message": f"Điểm tin cậy chưa đạt ngưỡng {result['threshold']:.0%}. Hồ sơ được giữ nguyên."}
 
 
 @app.post("/api/v1/soul/register", tags=["Linh Hồn Số"], summary="Khởi tạo Hạt giống Số (Gen #1)")
 def register_soul(payload: RegisterPayload, _: str = Depends(verify_api_key)) -> dict[str, Any]:
-    """Khởi tạo hồ sơ Chủ nhân thế hệ đầu tiên vào két sắt."""
-    engine = get_engine()
-    data = {
-        "owner_name": payload.owner_name,
-        "google": payload.google_id,
-        "apple": payload.apple_id,
-        "facebook": payload.facebook_id,
-        "dob": payload.dob,
-        "family": payload.family,
-        "traits": payload.traits,
-        "password": payload.password_sample,
-        "answer": payload.security_answer
-    }
-    try:
-        profile = engine.register_owner(data, force=payload.force_override)
-        return {
-            "status": "REGISTERED",
-            "message": f"Khởi tạo thành công cho {profile['owner_name']} (Gen #1)",
-            "generation": 1,
-            "created_at": profile["created_at"],
-            "radar_baseline": profile["radar_baseline"]
-        }
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    current = payload.current_identity.to_identity() if payload.current_identity else None
+    profile = call(lambda: service.register(service.open_or_create_engine(), payload.to_identity(payload.owner_name),
+                                            force=payload.force_override, current_identity=current))
+    return {"status": "REGISTERED", "generation": 1, "created_at": profile["created_at"],
+            "radar_baseline": profile["radar_baseline"], "message": f"Khởi tạo thành công cho {profile['owner_name']} (Gen #1)"}
 
 
-@app.get("/api/v1/soul/persona", tags=["Linh Hồn Số"], summary="Lấy Persona Prompt đồng hành")
-def get_persona_prompt() -> dict[str, str]:
-    """Sinh ra System Prompt mô tả chân dung, bản sắc và văn phong của chủ nhân cho AI Agents."""
-    engine = get_engine()
-    prompt = engine.generate_persona_prompt()
-    return {"persona_prompt": prompt}
+@app.get("/api/v1/soul/persona", tags=["Linh Hồn Số"], summary="Persona Prompt cho AI Agent")
+def get_persona_prompt(_: str = Depends(verify_api_key)) -> dict[str, str]:
+    return {"persona_prompt": call(lambda: service.persona_prompt(service.open_engine()))}
 
 
-@app.get("/api/v1/legacy/status", tags=["Di Sản Số"], summary="Kiểm tra đồng hồ Dead Man's Switch (730 ngày)")
-def get_legacy_status(simulated_days_offline: float = 0.0) -> dict[str, Any]:
-    """Xem tiến độ đếm ngược thời gian vắng mặt của chủ nhân đối chiếu với ngưỡng 2 năm."""
-    engine = get_engine()
-    status = engine.check_inactivity_status(simulated_days_offline=simulated_days_offline)
-    if not status:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chưa cấu hình Di sản Số.")
-    return status
+@app.get("/api/v1/legacy/status", tags=["Di Sản Số"], summary="Đồng hồ Dead Man's Switch")
+def get_legacy_status(simulated_days_offline: float = 0.0, _: str = Depends(verify_api_key)) -> dict[str, Any]:
+    def run():
+        engine = service.open_engine()
+        service.apply_demo_days(engine, simulated_days_offline)
+        return engine.legacy_status()
+
+    legacy_status = call(run)
+    if not legacy_status:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chưa niêm phong Di sản Số.")
+    return legacy_status
 
 
-@app.post("/api/v1/legacy/setup", tags=["Di Sản Số"], summary="Thiết lập di sản số và người thừa kế")
+@app.post("/api/v1/legacy/setup", tags=["Di Sản Số"], summary="Niêm phong di sản (xác minh Chủ nhân trong cùng yêu cầu)")
 def setup_legacy(payload: LegacySetupPayload, _: str = Depends(verify_api_key)) -> dict[str, Any]:
-    """Thiết lập thông tin người thừa kế, tài sản số và thông điệp trao truyền."""
-    engine = get_engine()
-    try:
-        cfg = engine.setup_digital_legacy(
-            heir_name=payload.heir_name,
-            heir_email=payload.heir_email,
-            family_secret=payload.family_secret,
-            assets_list=payload.assets_list,
-            message_to_kin=payload.legacy_message,
-            heir_bio_bytes=None,
-            inactivity_days=payload.inactivity_days,
-            owner_session_verified=True
-        )
-        return {"status": "CONFIGURED", "heir_name": cfg["heir_name_display"], "threshold_days": cfg["inactivity_threshold_days"]}
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    legacy_status = call(lambda: service.seal_legacy(
+        service.open_engine(), payload.owner_identity.to_identity(),
+        heir_name=payload.heir_name, heir_email=payload.heir_email, family_secret=payload.family_secret,
+        assets=payload.assets_list, message=payload.legacy_message, inactivity_days=payload.inactivity_days,
+    ))
+    return {"status": "CONFIGURED", **legacy_status}
 
 
 @app.post("/api/v1/legacy/claim", tags=["Di Sản Số"], summary="Người thừa kế mở khóa di sản số")
 def claim_legacy(payload: LegacyClaimPayload) -> dict[str, Any]:
     """
-    Xác thực khẩn cấp Người thừa kế (Tri thức Gia đình + Mật ước).
-    Chỉ mở khóa tài sản khi thỏa mãn cả 2 điều kiện: Chủ nhân offline >= 730 ngày VÀ Xác thực người thừa kế đạt chuẩn.
+    Công khai cho người thừa kế (không cần API Key / passphrase): bảo vệ bởi mật ước gia đình,
+    xác thực tri thức và khóa tạm sau 5 lần sai. Di sản có khóa sinh trắc phải tiếp quản qua giao diện Streamlit.
     """
-    engine = get_engine()
-    res = engine.verify_kin_with_biometrics(
-        kin_name=payload.kin_name,
-        kin_email=payload.kin_email,
-        owner_dob=payload.owner_dob,
-        other_family_members=payload.other_family_members,
-        family_secret_input=payload.family_secret,
-        live_bio_bytes=None,
-        simulated_days_offline=payload.simulated_days_offline
-    )
-    if res.get("status") == "ERROR":
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=res.get("msg", "Lỗi xác thực"))
+    def run():
+        engine = service.open_engine(unlock=False)
+        service.apply_demo_days(engine, payload.simulated_days_offline)
+        return service.claim_summary(engine.claim_legacy(
+            kin_name=payload.kin_name, kin_email=payload.kin_email, owner_dob=payload.owner_dob,
+            family_members=payload.other_family_members, family_secret=payload.family_secret,
+        ))
 
-    return {
-        "is_verified": res["is_verified"],
-        "is_unlocked": res["is_unlocked"],
-        "knowledge_score": round(res["knowledge_score"], 4),
-        "elapsed_days": res["elapsed_days"],
-        "threshold_days": res["threshold_days"],
-        "assets_unlocked": res.get("assets", []) if res["is_unlocked"] else [],
-        "legacy_message": res.get("message", "") if res["is_unlocked"] else "Di sản số đang được bảo vệ an toàn."
-    }
+    return call(run)

@@ -19,16 +19,16 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-mcp = ["mcp>=2.3.0"]
+mcp = ["mcp>=2.3.0; python_version >= '3.10'"]
 api = ["fastapi>=0.100.0", "uvicorn>=0.20.0", "pydantic>=2.0.0"]
-ui = ["streamlit>=1.30.0", "plotly>=5.18.0"]
+ui = ["streamlit>=1.50.0", "plotly>=5.18.0"]
 dev = ["pytest>=7.4.0", "ruff>=0.4.0", "httpx>=0.24.0"]
 all = [
-    "mcp>=2.3.0",
+    "mcp>=2.3.0; python_version >= '3.10'",
     "fastapi>=0.100.0",
     "uvicorn>=0.20.0",
     "pydantic>=2.0.0",
-    "streamlit>=1.30.0",
+    "streamlit>=1.50.0",
     "plotly>=5.18.0",
 ]
 
@@ -37,7 +37,7 @@ soul = "soul_cli:main"
 
 [tool.setuptools]
 packages = ["evolving_soul"]
-py-modules = ["core_engine", "soul_cli", "soul_mcp", "soul_api"]
+py-modules = ["soul_cli", "soul_mcp", "soul_api"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
@@ -53,3 +53,7 @@ target-version = "py39"
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP"]
 ignore = ["E501", "UP006", "UP007", "UP012", "UP035"]
+
+[tool.ruff.lint.per-file-ignores]
+# Pydantic/FastAPI đánh giá annotation lúc chạy: Python 3.9 cần Optional[...] thay cho `X | None`
+"soul_api.py" = ["UP045"]

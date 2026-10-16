@@ -42,7 +42,7 @@ def read_v2_profile(path: Path, phrase: str = V2_DEFAULT_PHRASE) -> dict:
 
 
 # =========================================================================
-# THUẬT TOÁN V2 (giữ nguyên hành vi của core_engine.EvolvingOwnerAI_V2)
+# THUẬT TOÁN V2 (giữ nguyên hành vi của core_engine.EvolvingOwnerAI_V2 — đã gỡ bỏ ở V3)
 # =========================================================================
 
 def _hash_norm(text) -> float:

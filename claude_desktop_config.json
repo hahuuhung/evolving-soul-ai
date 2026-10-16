@@ -5,7 +5,7 @@
       "args": ["soul_mcp.py", "--transport", "stdio"],
       "env": {
         "EVOLVING_SOUL_VAULT_DIR": "vault",
-        "EVOLVING_SOUL_PASSPHRASE": "chu_nhan_bi_mat_v2_2026"
+        "EVOLVING_SOUL_PASSPHRASE": "<passphrase-két-sắt-của-bạn>"
       }
     }
   }

@@ -1,5 +1,5 @@
 """
-Bộ Kiểm Thử Nâng Cấp MCP, CLI & REST API Gateway — Evolving Soul AI
+Bộ kiểm thử cổng giao tiếp V3: MCP Server, Rich CLI & REST API Gateway, cùng khóa liên tiến trình.
 Tác giả sáng lập: HÀ HỮU HƯNG (1985) — KỸ SƯ AI THẾ HỆ 8X
 Bản quyền: Giấy phép Mã nguồn Mở bắt buộc ghi nhận nguồn gốc (Attribution Required)
 """
@@ -8,290 +8,256 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 import subprocess
 import sys
 import threading
-import pytest
-from fastapi.testclient import TestClient
+from pathlib import Path
 
-from core_engine import EvolvingOwnerAI_V2
-import soul_mcp
-from soul_api import app
+import pytest
+
+from evolving_soul import EvolvingSoulEngine, Settings, service
+
+ROOT = Path(__file__).resolve().parent.parent
+PASSPHRASE = "test_secret_passphrase_1985"
+API_KEY = "test_api_key_123"
+SECRET = "Kỷ niệm ngôi nhà phố cổ Hà Nội 1985"
+OWNER = {
+    "owner_name": "HÀ HỮU HƯNG (1985)",
+    "google": "hahuuhung1985@gmail.com",
+    "apple": "hung8x@icloud.com",
+    "facebook": "fb.com/hahuuhung85",
+    "dob": "1985-05-15",
+    "family": "Bố Hà Văn A, Mẹ Nguyễn Thị B, Vợ Trần Thị C, Con trai Hà Minh Khôi",
+    "traits": ["Thích công nghệ", "Logic & Lý trí", "Hướng nội"],
+    "password": "HungAI@1985#Secret",
+    "answer": "Tôi luôn tìm thấy sự bình yên khi viết code AI vào ban đêm và uống trà nóng.",
+}
+IDENTITY_API = {
+    "google_id": OWNER["google"], "apple_id": OWNER["apple"], "facebook_id": OWNER["facebook"], "dob": OWNER["dob"],
+    "family": "Bố Hà Văn A, Mẹ Nguyễn Thị B, Vợ Trần Thị C", "traits": OWNER["traits"],
+    "password_sample": OWNER["password"], "security_answer": OWNER["answer"],
+}
+STRANGER_API = {"dob": "1995-01-01", "family": "Không rõ", "password_sample": "123456", "security_answer": "du lịch biển"}
+CLAIM = {
+    "kin_name": "Hà Minh Khôi", "kin_email": "khoi.ha@gmail.com", "owner_dob": "1985-05-15",
+    "other_family_members": "Bố Hà Văn A, Mẹ Nguyễn Thị B, Vợ Trần Thị C", "family_secret": SECRET,
+}
 
 
 @pytest.fixture
-def clean_test_vault(monkeypatch, tmp_path):
-    """Fixture tạo thư mục két sắt tạm biệt lập cho từng test case."""
-    vault_dir = str(tmp_path / "test_vault")
-    os.makedirs(vault_dir, exist_ok=True)
-    passphrase = "test_secret_passphrase_1985"
-
-    monkeypatch.setenv("EVOLVING_SOUL_VAULT_DIR", vault_dir)
-    monkeypatch.setenv("EVOLVING_SOUL_PASSPHRASE", passphrase)
+def vault_env(monkeypatch, tmp_path) -> Path:
+    """Két sắt V3 tạm có hồ sơ Chủ nhân và di sản đã niêm phong; biến môi trường trỏ tới két này."""
+    vault_dir = tmp_path / "vault"
+    monkeypatch.setenv("EVOLVING_SOUL_VAULT_DIR", str(vault_dir))
+    monkeypatch.setenv("EVOLVING_SOUL_PASSPHRASE", PASSPHRASE)
     monkeypatch.setenv("EVOLVING_SOUL_DEMO", "1")
-    monkeypatch.setenv("SOUL_API_KEY", "test_api_key_123")
+    monkeypatch.setenv("EVOLVING_SOUL_MODEL_DIR", str(tmp_path / "models"))
+    monkeypatch.setenv("SOUL_API_KEY", API_KEY)
 
-    ai = EvolvingOwnerAI_V2(secret_key_phrase=passphrase, vault_dir=vault_dir, demo_mode=True)
-    # Khởi tạo hồ sơ mẫu
-    sample_owner = {
-        "owner_name": "HÀ HỮU HƯNG (1985)",
-        "google": "hahuuhung1985@gmail.com",
-        "apple": "hung8x@icloud.com",
-        "facebook": "fb.com/hahuuhung85",
-        "dob": "1985-05-15",
-        "family": "Bố Hà Văn A, Mẹ Nguyễn Thị B, Vợ Trần Thị C, Con trai Hà Minh Khôi",
-        "traits": ["Thích công nghệ", "Logic & Lý trí", "Hướng nội"],
-        "password": "HungAI@1985#Secret",
-        "answer": "Tôi luôn tìm thấy sự bình yên khi viết code AI vào ban đêm và uống trà nóng."
-    }
-    ai.register_owner(sample_owner)
-    ai.setup_digital_legacy(
-        heir_name="Hà Minh Khôi",
-        heir_email="khoi.ha@gmail.com",
-        family_secret="Kỷ niệm ngôi nhà phố cổ Hà Nội 1985",
-        assets_list=["Bản quyền Evolving Soul AI"],
-        message_to_kin="Thông điệp trao gửi con trai.",
-        inactivity_days=730,
-        owner_session_verified=True
-    )
+    engine = EvolvingSoulEngine(Settings.from_env())
+    engine.create_vault(PASSPHRASE)
+    engine.register_owner(OWNER)
+    engine.verify_owner(OWNER)
+    engine.seal_legacy(heir_name="Hà Minh Khôi", heir_email="khoi.ha@gmail.com", family_secret=SECRET,
+                       assets=["Bản quyền Evolving Soul AI"], message="Thông điệp trao gửi con trai.")
+    return vault_dir
 
-    yield ai, vault_dir
+
+def generation() -> int:
+    return service.open_engine().profile["generation"]
 
 
 # =========================================================================
-# 1. KIỂM THỬ ĐỒNG THỜI & FILELOCK TRÊN KÉT SẮT
+# 1. KHÓA LIÊN TIẾN TRÌNH: KHÔNG MẤT CẬP NHẬT KHI GHI ĐỒNG THỜI
 # =========================================================================
 
-def test_filelock_concurrency(clean_test_vault):
-    """Kiểm tra đa luồng cùng đọc và ghi hồ sơ đồng thời không bị hỏng file mã hóa."""
-    ai, _ = clean_test_vault
-    errors = []
+def test_concurrent_verifications_do_not_lose_updates(vault_env):
+    start = generation()
+    errors: list[Exception] = []
 
-    def writer_task(idx: int):
+    def owner_session():
+        try:
+            for _ in range(3):
+                assert service.open_engine().verify_owner(OWNER)["is_owner"]
+        except Exception as exc:  # noqa: BLE001 — gom lỗi từ luồng để assert ở luồng chính
+            errors.append(exc)
+
+    def reader():
         try:
             for _ in range(5):
-                prof = ai.load_profile()
-                if prof:
-                    prof["generation"] += 1
-                    ai.save_profile(prof)
-        except Exception as e:
-            errors.append(e)
+                assert service.profile_summary(service.open_engine())["is_initialized"]
+        except Exception as exc:  # noqa: BLE001
+            errors.append(exc)
 
-    def reader_task():
-        try:
-            for _ in range(10):
-                prof = ai.load_profile()
-                assert prof is not None
-                assert "owner_name" in prof
-        except Exception as e:
-            errors.append(e)
-
-    threads = []
-    for i in range(4):
-        threads.append(threading.Thread(target=writer_task, args=(i,)))
-        threads.append(threading.Thread(target=reader_task))
-
+    threads = [threading.Thread(target=owner_session) for _ in range(4)] + [threading.Thread(target=reader) for _ in range(2)]
     for t in threads:
         t.start()
     for t in threads:
         t.join()
 
-    assert len(errors) == 0, f"Xảy ra lỗi đồng thời khi dùng FileLock: {errors}"
-    final_prof = ai.load_profile()
-    assert final_prof is not None
-    assert final_prof["generation"] > 1
+    assert not errors, errors
+    assert generation() == start + 12  # 4 phiên x 3 lần, không lần nào bị ghi đè
+    assert service.open_engine().audit_integrity()["ok"]
 
 
 # =========================================================================
-# 2. KIỂM THỬ MCP SERVER TOOLS VÀ RESOURCES
+# 2. MCP SERVER (Python ≥ 3.10)
 # =========================================================================
 
-def test_mcp_tools_and_resources(clean_test_vault):
-    """Kiểm tra hoạt động của các MCP Tools và Resources."""
-    ai, _ = clean_test_vault
+def test_mcp_tools_and_resources(vault_env):
+    soul_mcp = pytest.importorskip("soul_mcp", reason="MCP SDK 2.x cần Python ≥ 3.10")
 
-    # Tool: soul_get_status
     status = soul_mcp.soul_get_status()
-    assert status["is_initialized"] is True
-    assert status["owner_name"] == "HÀ HỮU HƯNG (1985)"
+    assert status["is_initialized"] and status["owner_name"] == "HÀ HỮU HƯNG (1985)"
+    assert status["soul_id"].startswith("SOUL-")
     assert "Định danh OAuth (SSO)" in status["radar_metrics"]
 
-    # Tool: soul_verify_identity (chính chủ)
-    res_verify = soul_mcp.soul_verify_identity(
-        google_id="hahuuhung1985@gmail.com",
-        apple_id="hung8x@icloud.com",
-        facebook_id="fb.com/hahuuhung85",
-        dob="1985-05-15",
-        family="Bố Hà Văn A, Mẹ Nguyễn Thị B, Vợ Trần Thị C, Con trai Hà Minh Khôi",
-        traits=["Thích công nghệ", "Logic & Lý trí", "Hướng nội"],
-        password_sample="HungAI@1985#Secret",
-        security_answer="Tôi luôn tìm thấy sự bình yên khi viết code AI vào ban đêm và uống trà nóng."
-    )
-    assert res_verify["is_owner"] is True
-    assert res_verify["trust_score"] >= 0.72
+    owner_args = dict(google_id=OWNER["google"], apple_id=OWNER["apple"], facebook_id=OWNER["facebook"],
+                      dob=OWNER["dob"], family=OWNER["family"], traits=OWNER["traits"],
+                      password_sample=OWNER["password"], security_answer=OWNER["answer"])
+    verified = soul_mcp.soul_verify_identity(**owner_args)
+    assert verified["is_owner"] and verified["trust_score"] >= verified["threshold"]
+    evolved = soul_mcp.soul_evolve(**owner_args)
+    assert evolved["status"] == "EVOLVED" and evolved["new_generation"] == verified["current_generation"] + 1
+    assert soul_mcp.soul_evolve(dob="1995-01-01", family="Không rõ")["status"] == "REJECTED"
 
-    # Tool: soul_evolve
-    res_evolve = soul_mcp.soul_evolve(
-        google_id="hahuuhung1985@gmail.com",
-        apple_id="hung8x@icloud.com",
-        facebook_id="fb.com/hahuuhung85",
-        dob="1985-05-15",
-        family="Bố Hà Văn A, Mẹ Nguyễn Thị B, Vợ Trần Thị C, Con trai Hà Minh Khôi",
-        traits=["Thích công nghệ", "Logic & Lý trí", "Hướng nội"],
-        password_sample="HungAI@1985#Secret",
-        security_answer="Tôi luôn tìm thấy sự bình yên khi viết code AI vào ban đêm và uống trà nóng."
-    )
-    assert res_evolve["status"] == "EVOLVED"
-    assert res_evolve["new_generation"] >= 2
+    # Ghi đè hồ sơ không kèm định danh hiện tại -> bị từ chối
+    hijack = soul_mcp.soul_register(owner_name="HACKER", dob="2000-01-01", family="X", force_override=True)
+    assert hijack["status"] == "ERROR" and hijack["error_type"] == "OwnerNotVerifiedError"
 
-    # Tool: soul_get_persona_prompt
     persona = soul_mcp.soul_get_persona_prompt()
-    assert "HÀ HỮU HƯNG (1985)" in persona
-    assert "EVOLVING SOUL PERSONA" in persona
+    assert "HÀ HỮU HƯNG (1985)" in persona and "EVOLVING SOUL PERSONA" in persona
+    for secret in ["1985-05-15", "Khôi", "HungAI", "bình yên"]:
+        assert secret not in persona
 
-    # Tool: soul_legacy_status & soul_claim_legacy
-    leg_stat = soul_mcp.soul_legacy_status(simulated_days_offline=0.0)
-    assert leg_stat["is_unlockable"] is False
+    assert soul_mcp.soul_legacy_status()["is_unlockable"] is False
+    claim = soul_mcp.soul_claim_legacy(**CLAIM, simulated_days_offline=735.0)
+    assert claim["is_unlocked"] and claim["assets_unlocked"] == ["Bản quyền Evolving Soul AI"]
 
-    # Thử claim khi offline đủ 735 ngày
-    claim_res = soul_mcp.soul_claim_legacy(
-        kin_name="Hà Minh Khôi",
-        kin_email="khoi.ha@gmail.com",
-        owner_dob="1985-05-15",
-        other_family_members="Bố Hà Văn A, Mẹ Nguyễn Thị B, Vợ Trần Thị C",
-        family_secret="Kỷ niệm ngôi nhà phố cổ Hà Nội 1985",
-        simulated_days_offline=735.0
-    )
-    assert claim_res["is_unlocked"] is True
-    assert len(claim_res["assets_unlocked"]) > 0
+    assert json.loads(soul_mcp.resource_profile())["owner_name"] == "HÀ HỮU HƯNG (1985)"
+    assert "Định danh OAuth (SSO)" in json.loads(soul_mcp.resource_radar())
+    assert json.loads(soul_mcp.resource_legacy())["claimed"] is True
 
-    # Resources
-    prof_json = json.loads(soul_mcp.resource_profile())
-    assert prof_json["owner_name"] == "HÀ HỮU HƯNG (1985)"
 
-    radar_json = json.loads(soul_mcp.resource_radar())
-    assert "Định danh OAuth (SSO)" in radar_json
-
-    persona_str = soul_mcp.resource_persona()
-    assert "HÀ HỮU HƯNG (1985)" in persona_str
+def test_mcp_without_passphrase_reports_locked(vault_env, monkeypatch):
+    soul_mcp = pytest.importorskip("soul_mcp", reason="MCP SDK 2.x cần Python ≥ 3.10")
+    monkeypatch.delenv("EVOLVING_SOUL_PASSPHRASE")
+    result = soul_mcp.soul_get_status()
+    assert result["status"] == "ERROR" and result["error_type"] == "VaultLockedError"
 
 
 # =========================================================================
-# 3. KIỂM THỬ GIAO DIỆN DÒNG LỆNH CLI (RICH & JSON MODE)
+# 3. CLI (RICH & --json)
 # =========================================================================
 
-def test_cli_subcommands(clean_test_vault):
-    """Kiểm tra thực thi các câu lệnh CLI qua subprocess với cờ --json."""
-    _, vault_dir = clean_test_vault
-    env = os.environ.copy()
-    env["PYTHONIOENCODING"] = "utf-8"
-    env["EVOLVING_SOUL_VAULT_DIR"] = vault_dir
-    env["EVOLVING_SOUL_PASSPHRASE"] = "test_secret_passphrase_1985"
-    env["EVOLVING_SOUL_DEMO"] = "1"
+def _cli(*args: str, env_overrides: dict | None = None) -> subprocess.CompletedProcess:
+    env = {**os.environ, "PYTHONIOENCODING": "utf-8", **(env_overrides or {})}
+    return subprocess.run([sys.executable, str(ROOT / "soul_cli.py"), *args], capture_output=True, text=True,
+                          encoding="utf-8", env=env, cwd=ROOT, stdin=subprocess.DEVNULL)
 
-    # Lệnh: status --json
-    cmd_stat = [sys.executable, "soul_cli.py", "--json", "status"]
-    proc = subprocess.run(cmd_stat, capture_output=True, text=True, encoding="utf-8", env=env)
-    assert proc.returncode == 0
+
+def test_cli_subcommands(vault_env):
+    proc = _cli("--json", "status")
+    assert proc.returncode == 0, proc.stderr
     data = json.loads(proc.stdout)
-    assert data["status"] == "INITIALIZED"
-    assert data["owner_name"] == "HÀ HỮU HƯNG (1985)"
+    assert data["status"] == "ACTIVE" and data["owner_name"] == "HÀ HỮU HƯNG (1985)"
 
-    # Lệnh: persona --json
-    cmd_persona = [sys.executable, "soul_cli.py", "--json", "persona"]
-    proc_p = subprocess.run(cmd_persona, capture_output=True, text=True, encoding="utf-8", env=env)
-    assert proc_p.returncode == 0
-    p_data = json.loads(proc_p.stdout)
-    assert "persona_prompt" in p_data
+    proc = _cli("--json", "persona")
+    assert proc.returncode == 0 and "persona_prompt" in json.loads(proc.stdout)
 
-    # Lệnh: verify --json
-    cmd_verify = [
-        sys.executable, "soul_cli.py", "--json", "verify",
-        "--google", "hahuuhung1985@gmail.com",
-        "--apple", "hung8x@icloud.com",
-        "--facebook", "fb.com/hahuuhung85",
-        "--dob", "1985-05-15",
-        "--family", "Bố Hà Văn A, Mẹ Nguyễn Thị B, Vợ Trần Thị C",
-        "--traits", "Thích công nghệ,Logic & Lý trí,Hướng nội",
-        "--password", "HungAI@1985#Secret",
-        "--answer", "Tôi luôn tìm thấy sự bình yên khi viết code AI vào ban đêm và uống trà nóng."
-    ]
-    proc_v = subprocess.run(cmd_verify, capture_output=True, text=True, encoding="utf-8", env=env)
-    assert proc_v.returncode == 0
-    v_data = json.loads(proc_v.stdout)
-    assert v_data["is_owner"] is True
+    proc = _cli("--json", "verify", "--google", OWNER["google"], "--apple", OWNER["apple"], "--facebook", OWNER["facebook"],
+                "--dob", OWNER["dob"], "--family", "Bố Hà Văn A, Mẹ Nguyễn Thị B, Vợ Trần Thị C",
+                "--traits", ",".join(OWNER["traits"]), "--password", OWNER["password"], "--answer", OWNER["answer"])
+    assert proc.returncode == 0, proc.stderr
+    assert json.loads(proc.stdout)["is_owner"] is True
 
-    # Lệnh: legacy status --json
-    cmd_leg = [sys.executable, "soul_cli.py", "--json", "legacy", "status", "--simulate-days", "10"]
-    proc_l = subprocess.run(cmd_leg, capture_output=True, text=True, encoding="utf-8", env=env)
-    assert proc_l.returncode == 0
-    l_data = json.loads(proc_l.stdout)
-    assert "is_unlockable" in l_data
+    proc = _cli("--json", "legacy", "status", "--simulate-days", "10")
+    assert proc.returncode == 0, proc.stderr
+    assert json.loads(proc.stdout)["elapsed_days"] == pytest.approx(10.0, abs=0.2)
+
+    proc = _cli("--json", "legacy", "claim", "--kin-name", CLAIM["kin_name"], "--kin-email", CLAIM["kin_email"],
+                "--owner-dob", CLAIM["owner_dob"], "--family", CLAIM["other_family_members"], "--secret", SECRET,
+                "--simulate-days", "800")
+    assert proc.returncode == 0, proc.stderr
+    assert json.loads(proc.stdout)["is_unlocked"] is True
+
+
+def test_cli_without_passphrase_fails_cleanly(vault_env):
+    proc = _cli("--json", "status", env_overrides={"EVOLVING_SOUL_PASSPHRASE": ""})
+    assert proc.returncode == 1
+    assert "EVOLVING_SOUL_PASSPHRASE" in proc.stderr and "Traceback" not in proc.stderr
+
+
+def test_cli_simulation_rejected_outside_demo(vault_env):
+    proc = _cli("--json", "legacy", "status", "--simulate-days", "800", env_overrides={"EVOLVING_SOUL_DEMO": "0"})
+    assert proc.returncode == 1 and "demo" in proc.stderr
 
 
 # =========================================================================
-# 4. KIỂM THỬ FASTAPI REST GATEWAY
+# 4. REST API GATEWAY
 # =========================================================================
 
-def test_fastapi_rest_endpoints(clean_test_vault):
-    """Kiểm thử tất cả các REST API endpoints và xác thực Header X-API-Key."""
-    client = TestClient(app)
+@pytest.fixture
+def client(vault_env):
+    from fastapi.testclient import TestClient
 
-    # 1. Health check (không cần API Key)
-    resp = client.get("/api/v1/health")
-    assert resp.status_code == 200
-    assert resp.json()["status"] == "HEALTHY"
-    assert resp.json()["vault_initialized"] is True
+    from soul_api import app
+    return TestClient(app)
 
-    # 2. Soul status không có API Key -> 401
-    resp_unauth = client.get("/api/v1/soul/status")
-    assert resp_unauth.status_code == 401
 
-    # 3. Soul status có API Key hợp lệ -> 200
-    resp_stat = client.get("/api/v1/soul/status", headers={"X-API-Key": "test_api_key_123"})
-    assert resp_stat.status_code == 200
-    data = resp_stat.json()
-    assert data["owner_name"] == "HÀ HỮU HƯNG (1985)"
-    assert "Định danh OAuth (SSO)" in data["radar_metrics"]
+AUTH = {"X-API-Key": API_KEY}
 
-    # 4. Xác thực danh tính qua POST /api/v1/soul/verify
-    verify_payload = {
-        "google_id": "hahuuhung1985@gmail.com",
-        "apple_id": "hung8x@icloud.com",
-        "facebook_id": "fb.com/hahuuhung85",
-        "dob": "1985-05-15",
-        "family": "Bố Hà Văn A, Mẹ Nguyễn Thị B, Vợ Trần Thị C",
-        "traits": ["Thích công nghệ", "Logic & Lý trí", "Hướng nội"],
-        "password_sample": "HungAI@1985#Secret",
-        "security_answer": "Tôi luôn tìm thấy sự bình yên khi viết code AI vào ban đêm và uống trà nóng."
-    }
-    resp_ver = client.post("/api/v1/soul/verify", json=verify_payload)
-    assert resp_ver.status_code == 200
-    assert resp_ver.json()["is_owner"] is True
-    assert resp_ver.json()["trust_score"] >= 0.72
 
-    # 5. Evolve qua POST /api/v1/soul/evolve (yêu cầu API Key)
-    resp_evo = client.post("/api/v1/soul/evolve", json=verify_payload, headers={"X-API-Key": "test_api_key_123"})
-    assert resp_evo.status_code == 200
-    assert resp_evo.json()["status"] == "EVOLVED"
+def test_api_authentication(client, monkeypatch):
+    health = client.get("/api/v1/health").json()
+    assert health["status"] == "HEALTHY" and health["vault_initialized"] and health["legacy_sealed"]
 
-    # 6. Persona prompt qua GET /api/v1/soul/persona
-    resp_per = client.get("/api/v1/soul/persona")
-    assert resp_per.status_code == 200
-    assert "HÀ HỮU HƯNG (1985)" in resp_per.json()["persona_prompt"]
+    for method, path in [("get", "/api/v1/soul/status"), ("get", "/api/v1/soul/persona"), ("get", "/api/v1/legacy/status")]:
+        assert getattr(client, method)(path).status_code == 401
+        assert getattr(client, method)(path, headers={"X-API-Key": "sai"}).status_code == 401
+    assert client.post("/api/v1/soul/verify", json=IDENTITY_API).status_code == 401  # V2 để trống, nay bắt buộc khóa
 
-    # 7. Legacy claim qua POST /api/v1/legacy/claim sau 735 ngày offline
-    claim_payload = {
-        "kin_name": "Hà Minh Khôi",
-        "kin_email": "khoi.ha@gmail.com",
-        "owner_dob": "1985-05-15",
-        "other_family_members": "Bố Hà Văn A, Mẹ Nguyễn Thị B, Vợ Trần Thị C",
-        "family_secret": "Kỷ niệm ngôi nhà phố cổ Hà Nội 1985",
-        "simulated_days_offline": 735.0
-    }
-    resp_claim = client.post("/api/v1/legacy/claim", json=claim_payload)
-    assert resp_claim.status_code == 200
-    c_res = resp_claim.json()
-    assert c_res["is_unlocked"] is True
-    assert len(c_res["assets_unlocked"]) > 0
+    monkeypatch.delenv("SOUL_API_KEY")
+    assert client.get("/api/v1/soul/status", headers=AUTH).status_code == 503  # không có khóa mặc định
+
+
+def test_api_owner_endpoints(client):
+    status = client.get("/api/v1/soul/status", headers=AUTH)
+    assert status.status_code == 200 and status.json()["owner_name"] == "HÀ HỮU HƯNG (1985)"
+
+    verified = client.post("/api/v1/soul/verify", json=IDENTITY_API, headers=AUTH).json()
+    assert verified["is_owner"] is True
+    assert client.post("/api/v1/soul/evolve", json=IDENTITY_API, headers=AUTH).json()["status"] == "EVOLVED"
+    assert client.post("/api/v1/soul/evolve", json=STRANGER_API, headers=AUTH).json()["status"] == "REJECTED"
+
+    persona = client.get("/api/v1/soul/persona", headers=AUTH).json()["persona_prompt"]
+    assert "HÀ HỮU HƯNG (1985)" in persona
+
+    conflict = client.post("/api/v1/soul/register", json={**STRANGER_API, "owner_name": "HACKER"}, headers=AUTH)
+    assert conflict.status_code == 409
+
+
+def test_api_legacy_setup_requires_owner_identity(client):
+    seal = {"heir_name": "Kẻ gian", "heir_email": "gian@example.com", "family_secret": "mat uoc moi cua ke gian",
+            "assets_list": ["Chiếm đoạt"], "inactivity_days": 30}
+    denied = client.post("/api/v1/legacy/setup", json={**seal, "owner_identity": STRANGER_API}, headers=AUTH)
+    assert denied.status_code == 403
+    assert client.get("/api/v1/legacy/status", headers=AUTH).json()["heir_name_display"] == "Hà Minh Khôi"
+
+    ok = client.post("/api/v1/legacy/setup", json={**seal, "heir_name": "Hà Minh Khôi",
+                                                    "owner_identity": IDENTITY_API}, headers=AUTH)
+    assert ok.status_code == 200 and ok.json()["threshold_days"] == 30
+
+
+def test_api_claim_and_lockout(client):
+    early = client.post("/api/v1/legacy/claim", json=CLAIM).json()
+    assert early["is_verified"] and not early["is_unlocked"] and early["assets_unlocked"] == []
+
+    unlocked = client.post("/api/v1/legacy/claim", json={**CLAIM, "simulated_days_offline": 735.0}).json()
+    assert unlocked["is_unlocked"] and len(unlocked["assets_unlocked"]) == 1
+
+    wrong = {**CLAIM, "family_secret": "sai mat uoc roi"}
+    for _ in range(5):
+        assert client.post("/api/v1/legacy/claim", json=wrong).json()["is_verified"] is False
+    locked = client.post("/api/v1/legacy/claim", json=CLAIM)
+    assert locked.status_code == 429 and "Retry-After" in locked.headers

@@ -22,7 +22,7 @@ from tests.test_features import DEVICE, OWNER
 
 
 def write_v2_vault(vault_dir: Path, data: dict, phrase: str = legacy_v2.V2_DEFAULT_PHRASE, with_legacy: bool = True) -> Path:
-    """Tạo két sắt đúng định dạng V2 (như core_engine.EvolvingOwnerAI_V2.register_owner + setup_digital_legacy)."""
+    """Tạo két sắt đúng định dạng V2 (như bản V2 cũ: register_owner + setup_digital_legacy)."""
     vec, family, words = legacy_v2._package(data)
     profile = {
         "owner_name": data.get("owner_name", "HÀ HỮU HƯNG (1985)"),

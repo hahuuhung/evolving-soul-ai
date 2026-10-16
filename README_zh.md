@@ -24,6 +24,8 @@
 
 该系统在日常运行中完全摆脱了对物理生物识别（如人脸摄像头、视网膜或指纹扫描仪）的依赖，杜绝了生物特征泄露与 Deepfake 欺诈风险；同时开创性地整合了**两年离线自动遗产移交协议（Dead Man's Switch / 730天）**，在主人长期离线后，通过条件激活继承人生物识别锁，安全过渡其在线数字资产与知识产权。
 
+> **⚠️ V3 更新：** 本文档下方描述的是 V2 架构。V3 已改为：主密钥由口令（Scrypt）包裹、敏感数据仅以 HMAC-SHA256 保存、5 支柱评分阈值 0.62、继承人人脸识别采用 OpenCV YuNet + SFace，并提供 CLI / MCP / REST 网关。最新安装与安全说明请参阅 [README.md（英文）](README.md#-english) 与 [docs/WALKTHROUGH.md](docs/WALKTHROUGH.md)。
+
 ---
 
 ## 🏗️ 系统工作流架构 (Workflow Architecture)
