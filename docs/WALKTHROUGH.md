@@ -172,3 +172,22 @@ Mockup `docs/mockups/v3_ui.html` đã được duyệt trước khi code (CLAUDE
 - Yêu cầu `streamlit>=1.50` (1.50.0 là bản cuối hỗ trợ Python 3.9); `show_chart()` tự chọn `width="stretch"` hoặc `use_container_width` theo phiên bản.
 
 **Kiểm thử**: `tests/test_app_ui.py` (Streamlit AppTest, headless) — hành trình đầy đủ Chủ nhân → niêm phong → khóa → người thừa kế tiếp quản ở chế độ demo; sai passphrase hiện lỗi thân thiện; không có thanh trượt ngoài chế độ demo. Toàn bộ 74 test V3 pass trên Python 3.13 + Streamlit 1.66 và Python 3.9 + Streamlit 1.50.
+
+---
+
+## Giai đoạn 7 — Cổng CLI / REST API / MCP trên engine V3
+
+`soul_cli.py`, `soul_api.py`, `soul_mcp.py` bỏ `core_engine.EvolvingOwnerAI_V2` và dùng chung lớp `evolving_soul.service` trên `EvolvingSoulEngine`. `core_engine.py` bị gỡ khỏi bản phân phối.
+
+| Cổng | Điểm chính |
+|---|---|
+| **CLI** (`soul`) | Passphrase lấy từ `EVOLVING_SOUL_PASSPHRASE`, nếu thiếu thì hỏi bằng `getpass` (nhập 2 lần khi `register`). `legacy claim` không cần passphrase. |
+| **REST** (FastAPI) | Bắt buộc đặt `SOUL_API_KEY` (so sánh `hmac.compare_digest`; chưa đặt → 503). CORS tắt mặc định, chỉ bật theo `SOUL_API_CORS_ORIGINS`. Lỗi nghiệp vụ → 404/423/403/409/400, khóa tạm → 429 kèm `Retry-After`. Công khai: chỉ `/health` và `/legacy/claim`. |
+| **MCP 2.x** | Chỉ Python ≥ 3.10. Lỗi trả về `{"status": "ERROR", ...}` thay vì traceback; log ra stderr để không làm hỏng stdio JSON-RPC. |
+
+- Niêm phong di sản qua API/MCP phải gửi kèm định danh Chủ nhân và được xác minh ngay trong cùng yêu cầu.
+- Ghi đè hồ sơ cần `force_override` **và** `current_identity` hợp lệ.
+- `simulated_days_offline` chỉ có tác dụng ở chế độ demo.
+- File cấu hình MCP mẫu không còn chứa passphrase thật.
+
+**Kiểm thử**: `tests/test_mcp_cli_api.py` và `tests/test_e2e_suite.py` (12 kịch bản: 6 hành trình gốc + 6 hồi quy bảo mật, thay cho `test_security_regressions.py` cũ). Tổng 96 test pass, ruff sạch.
